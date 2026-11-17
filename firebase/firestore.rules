@@ -62,7 +62,7 @@ service cloud.firestore {
       }
     }
     match /courses/{id} {
-      allow read: if owner() || courseVisible(id);
+      allow read: if owner() || (active() && resource.data.published == true && (resource.data.kind == 'develop' || resource.data.grade == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.grade));
       allow write: if owner();
     }
     match /lessons/{id} {
