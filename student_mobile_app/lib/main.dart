@@ -1,7 +1,12 @@
-// SPDX-FileCopyrightText: 2026 Pace Wisdom Solutions Pvt. Ltd.
+// SPDX-FileCopyrightText: 2026 Ahmed Elwakeel
 // SPDX-License-Identifier: Apache-2.0
+import 'package:flutter/material.dart';
+import 'sibawayh/store.dart';
+import 'sibawayh/app.dart';
 
-import 'package:tutorloom/utils/app_exports.dart';
-
-/// The only entry point. `flutter run`.
-void main() => initApp();
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  final store = SibStore();
+  await store.initialize();
+  runApp(SibawayhApp(store: store));
+}

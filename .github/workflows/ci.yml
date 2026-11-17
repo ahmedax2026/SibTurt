@@ -6,7 +6,9 @@ name: CI
 on:
   push:
     branches: [main]
+    paths-ignore: ["plans/**", "student_mobile_app/**", "firebase/**", "firebase.json", "tests/firebase/**", ".github/workflows/sibawayh.yml"]
   pull_request:
+    paths-ignore: ["plans/**", "student_mobile_app/**", "firebase/**", "firebase.json", "tests/firebase/**", ".github/workflows/sibawayh.yml"]
 
 permissions:
   contents: read

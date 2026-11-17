@@ -4,7 +4,7 @@
 name: tutorloom
 description: "TutorLoom is a student-friendly platform that makes learning simple, engaging, and accessible anytime, anywhere."
 publish_to: 'none'
-version: 1.0.0+1
+version: 1.1.0+2
 
 environment:
   sdk: ^3.13.0
@@ -12,6 +12,12 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+
+  firebase_core: ^4.0.0
+  firebase_auth: ^6.0.0
+  cloud_firestore: ^6.0.0
+  image: ^4.5.4
+  webview_flutter: ^4.13.0
 
   cupertino_icons: ^1.0.8
   flutter_localizations:
@@ -55,12 +61,12 @@ dev_dependencies:
 #   dart run flutter_launcher_icons
 # Re-run it whenever assets/app_logo.png changes.
 flutter_launcher_icons:
-  image_path: "assets/app_logo.png"
+  image_path: "assets/sibawayh_brand.jpg"
   android: "ic_launcher"
   # Android 8+ draws the adaptive layers; the background is flat white so a
   # logo with its own padding is not cropped by the system mask.
-  adaptive_icon_background: "#FFFFFF"
-  adaptive_icon_foreground: "assets/app_logo.png"
+  adaptive_icon_background: "#171615"
+  adaptive_icon_foreground: "assets/sibawayh_brand.jpg"
   min_sdk_android: 21
   ios: true
   # iOS rejects an alpha channel in the app icon, so it is flattened onto white.

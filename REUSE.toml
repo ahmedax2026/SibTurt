@@ -62,3 +62,8 @@ path = [
 ]
 SPDX-FileCopyrightText = "2014 The Flutter Authors"
 SPDX-License-Identifier = "BSD-3-Clause"
+
+[[annotations]]
+path = ["student_mobile_app/assets/sibawayh_brand.jpg"]
+SPDX-FileCopyrightText = "2026 Ahmed Elwakeel"
+SPDX-License-Identifier = "LicenseRef-Sibawayh-Brand"

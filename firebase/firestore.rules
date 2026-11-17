@@ -1,0 +1,129 @@
+// SPDX-FileCopyrightText: 2026 Ahmed Elwakeel
+// SPDX-License-Identifier: Apache-2.0
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signed() { return request.auth != null; }
+    function active() { return signed() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.blocked == false; }
+    function owner() { return active() && exists(/databases/$(database)/documents/roles/$(request.auth.uid)) && get(/databases/$(database)/documents/roles/$(request.auth.uid)).data.owner == true; }
+    function own(uid) { return signed() && request.auth.uid == uid; }
+    function courseVisible(cid) {
+      let c = get(/databases/$(database)/documents/courses/$(cid)).data;
+      return active() && c.published == true && (c.kind == 'develop' || c.grade == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.grade);
+    }
+    function entitled(cid) {
+      return owner() || (courseVisible(cid) && exists(/databases/$(database)/documents/users/$(request.auth.uid)/subscriptions/$(cid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)/subscriptions/$(cid)).data.expires_at > request.time);
+    }
+    function canTake(qid) {
+      let q = get(/databases/$(database)/documents/quizzes/$(qid)).data;
+      return q.published == true && entitled(q.course_id);
+    }
+    function questionEditable(qid) { return get(/databases/$(database)/documents/quizzes/$(qid)).data.published == false; }
+    match /settings/{id} {
+      allow get: if id in ['branding','catalog'];
+      allow list: if owner();
+      allow write: if owner();
+    }
+    // No application client, including an owner account, can create or grant roles.
+    // Bootstrap the owner's UID through Firebase Console or trusted Admin SDK once.
+    match /roles/{uid} {
+      allow get: if own(uid) || owner();
+      allow list: if owner();
+      allow write: if false;
+    }
+    match /users/{uid} {
+      allow get: if own(uid) || owner();
+      allow list: if owner();
+      allow create: if own(uid) && request.resource.data.keys().hasOnly(['name','phone','grade','email','blocked','created_at'])
+        && request.resource.data.name is string && request.resource.data.name.size() >= 3 && request.resource.data.name.size() <= 100
+        && request.resource.data.phone is string && request.resource.data.phone.matches('^[+]?[0-9]{8,15}$')
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.grade is string
+        && (exists(/databases/$(database)/documents/settings/catalog)
+          ? request.resource.data.grade in get(/databases/$(database)/documents/settings/catalog).data.grades
+          : request.resource.data.grade in ['الأول الثانوي','الثاني الثانوي','الثالث الثانوي'])
+        && request.resource.data.blocked == false && request.resource.data.created_at == request.time;
+      allow update: if owner() && request.resource.data.email == resource.data.email && request.resource.data.created_at == resource.data.created_at;
+      allow delete: if false;
+      match /subscriptions/{cid} {
+        allow get: if own(uid) || owner();
+        allow list: if own(uid) || owner();
+        allow create,update: if owner() && request.resource.data.course_id == cid && request.resource.data.expires_at is timestamp && request.resource.data.updated_at == request.time;
+        allow delete: if owner();
+      }
+      match /progress/{lid} {
+        allow read: if own(uid) || owner();
+        allow create,update: if own(uid) && active() && entitled(request.resource.data.course_id)
+          && request.resource.data.keys().hasOnly(['lesson_id','course_id','seconds','completed','updated_at'])
+          && request.resource.data.lesson_id == lid && request.resource.data.seconds is number
+          && request.resource.data.seconds >= 0 && request.resource.data.seconds <= 86400
+          && request.resource.data.completed is bool && request.resource.data.updated_at == request.time;
+        allow delete: if owner();
+      }
+    }
+    match /courses/{id} {
+      allow read: if owner() || courseVisible(id);
+      allow write: if owner();
+    }
+    match /lessons/{id} {
+      allow read: if owner() || (active() && resource.data.published == true && courseVisible(resource.data.course_id));
+      allow write: if owner();
+    }
+    match /lessonSources/{id} {
+      allow get: if owner() || (entitled(resource.data.course_id) && get(/databases/$(database)/documents/lessons/$(id)).data.published == true
+        && get(/databases/$(database)/documents/lessons/$(id)).data.course_id == resource.data.course_id);
+      allow list: if owner();
+      allow write: if owner();
+    }
+    match /quizzes/{id} {
+      allow read: if owner() || (resource.data.published == true && courseVisible(resource.data.course_id));
+      allow write: if owner();
+    }
+    match /questions/{id} {
+      allow read: if owner() || canTake(resource.data.quiz_id);
+      allow create,update: if owner() && questionEditable(request.resource.data.quiz_id);
+      allow delete: if owner() && questionEditable(resource.data.quiz_id);
+    }
+    match /answerKeys/{id} {
+      allow read,write: if owner();
+    }
+    match /attempts/{id} {
+      allow get: if owner() || (active() && resource.data.uid == request.auth.uid);
+      // A missing own attempt can be checked before its creation.
+      allow get: if signed() && id.matches('^' + request.auth.uid + '_.*$') && !exists(/databases/$(database)/documents/attempts/$(id));
+      allow list: if owner();
+      allow create: if active() && request.resource.data.uid == request.auth.uid
+        && id == request.auth.uid + '_' + request.resource.data.quiz_id
+        && request.resource.data.keys().hasOnly(['uid','quiz_id','course_id','time_minutes','started_at','submitted_at','answers'])
+        && canTake(request.resource.data.quiz_id)
+        && request.resource.data.course_id == get(/databases/$(database)/documents/quizzes/$(request.resource.data.quiz_id)).data.course_id
+        && request.resource.data.time_minutes == get(/databases/$(database)/documents/quizzes/$(request.resource.data.quiz_id)).data.time_minutes
+        && request.resource.data.started_at == request.time && request.resource.data.submitted_at == null && request.resource.data.answers == {};
+      allow update: if active() && resource.data.uid == request.auth.uid && resource.data.submitted_at == null
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['answers','submitted_at'])
+        && request.resource.data.answers is map && request.resource.data.answers.size() <= 100
+        && request.resource.data.submitted_at == request.time && canTake(resource.data.quiz_id)
+        && (resource.data.time_minutes == 0 || request.time <= resource.data.started_at + duration.value(resource.data.time_minutes * 60 + 30,'s'));
+      allow delete: if owner();
+    }
+    match /grades/{id} {
+      allow get: if owner() || (active() && resource.data.uid == request.auth.uid && get(/databases/$(database)/documents/quizzes/$(resource.data.quiz_id)).data.show_results == true);
+      allow list: if owner();
+      allow write: if owner();
+    }
+    match /playback/{id} {
+      allow get: if owner() || (active() && resource.data.uid == request.auth.uid);
+      allow list: if owner();
+      allow create: if active() && request.resource.data.uid == request.auth.uid
+        && request.resource.data.keys().hasOnly(['uid','lesson_id','course_id','created_at'])
+        && request.resource.data.created_at == request.time && entitled(request.resource.data.course_id)
+        && get(/databases/$(database)/documents/lessons/$(request.resource.data.lesson_id)).data.published == true
+        && get(/databases/$(database)/documents/lessons/$(request.resource.data.lesson_id)).data.course_id == request.resource.data.course_id;
+      allow update: if false;
+      allow delete: if owner();
+    }
+    match /audit/{id} { allow read: if owner(); allow create: if owner() && request.resource.data.actor == request.auth.uid && request.resource.data.created_at == request.time; allow update,delete: if false; }
+    match /renewals/{id} { allow read,create: if owner(); allow update,delete: if false; }
+    match /{document=**} { allow read,write: if false; }
+  }
+}
