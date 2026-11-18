@@ -1068,6 +1068,7 @@ class _AdminLessonsState extends State<AdminLessons> {
           options: {
             'youtube': 'YouTube',
             'drive': 'Google Drive',
+            'okru': 'OK.ru (تجريبي)',
             'mp4': 'MP4 مباشر',
             'hls': 'HLS مباشر',
             'cloudflare': 'Cloudflare — رابط تشغيل HTTPS',
@@ -1109,6 +1110,11 @@ class _AdminLessonsState extends State<AdminLessons> {
           throw StateError('استخدم رابط فيديو YouTube صحيحًا');
         if (provider == 'drive' && u.host != 'drive.google.com')
           throw StateError('استخدم رابط Google Drive');
+        if (provider == 'okru' &&
+            (!['ok.ru', 'www.ok.ru', 'm.ok.ru'].contains(u.host) ||
+             !RegExp(r'^/video(?:embed)?/\d+$').hasMatch(u.path))) {
+          throw StateError('استخدم رابط فيديو OK.ru صحيحًا');
+        }
         final metadata = {
           'course_id': widget.course['id'],
           'title': d['title'],
