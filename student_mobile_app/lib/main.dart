@@ -9,7 +9,7 @@ import 'sibawayh/app.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   UniversalYoutubePlayerBootstrap.ensureInitialized();
-  await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+  await SystemChrome.setPreferredOrientations(DeviceOrientation.values);
   final store = SibStore();
   await store.initialize();
   runApp(SibawayhApp(store: store));
