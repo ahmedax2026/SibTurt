@@ -120,18 +120,19 @@ class SibStore extends ChangeNotifier {
         subjects = List<String>.from(d['subjects'] ?? initialSubjects);
         notifyListeners();
       });
-      _authSub = _auth!.authStateChanges().listen((_) {
-        unawaited(refreshProfile());
-      });
+      await _auth!.authStateChanges().first;
       await refreshProfile();
       if (uid != null && profile != null) {
         try {
           await verifyDeviceBinding();
         } catch (e) {
           setupError = '$e';
-          await logout();
+          deviceVerified = false;
         }
       }
+      _authSub = _auth!.authStateChanges().skip(1).listen((_) {
+        unawaited(refreshProfile());
+      });
     } catch (e) {
       ready = false;
       setupError = 'تعذر تهيئة Firebase. راجع إعدادات المشروع والاتصال.';
@@ -617,8 +618,9 @@ class SibStore extends ChangeNotifier {
     String student,
     String courseId,
     int days,
-    String requestId,
-  ) async {
+    String requestId, {
+    bool replaceDuration = false,
+  }) async {
     requireOwner();
     if (days < 1 || days > 365) throw StateError('المدة من يوم إلى ٣٦٥ يومًا');
     final sub = db.doc('users/$student/subscriptions/$courseId');
@@ -634,7 +636,7 @@ class SibStore extends ChangeNotifier {
         throw StateError('الاشتراك الدراسي يجب أن يطابق صف الطالب');
       final oldEnd = seconds(old.data()?['expires_at']);
       final expires =
-          max(DateTime.now().millisecondsSinceEpoch ~/ 1000, oldEnd) +
+          (replaceDuration ? DateTime.now().millisecondsSinceEpoch ~/ 1000 : max(DateTime.now().millisecondsSinceEpoch ~/ 1000, oldEnd)) +
           days * 86400;
       tx.set(sub, {
         'course_id': courseId,
