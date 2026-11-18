@@ -13,6 +13,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import 'store.dart';
 import 'app.dart';
+import 'quizzes.dart';
 
 class LessonPlayer extends StatefulWidget {
   const LessonPlayer({super.key, required this.store, required this.lesson});
@@ -45,6 +46,7 @@ class _LessonPlayerState extends State<LessonPlayer>
   final elapsed = Stopwatch();
   Alignment markAlignment = const Alignment(-.6, -.5);
   RowData source = {};
+  List<RowData> lessonQuizzes = [];
   @override
   void initState() {
     super.initState();
@@ -144,6 +146,19 @@ class _LessonPlayerState extends State<LessonPlayer>
           .doc('users/${widget.store.uid}/progress/${widget.lesson['id']}')
           .get(const GetOptions(source: Source.server));
       completed = resume.data()?['completed'] == true;
+      try {
+        final quizzes = await widget.store.list(
+          'quizzes',
+          field: 'course_id',
+          equalTo: widget.lesson['course_id'],
+          published: true,
+        );
+        lessonQuizzes = quizzes
+            .where((q) => q['lesson_id'] == widget.lesson['id'])
+            .toList();
+      } catch (_) {
+        lessonQuizzes = [];
+      }
       final start = ((resume.data()?['seconds'] as num?) ?? 0).toDouble();
       provider = text(source, 'provider');
       final url = text(source, 'url');
@@ -420,14 +435,60 @@ class _LessonPlayerState extends State<LessonPlayer>
                 text(widget.lesson, 'notes'),
                 style: const TextStyle(height: 1.9),
               ),
+              const SizedBox(height: 20),
+              Text(
+                'اختبار المحاضرة',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              if (lessonQuizzes.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 12),
+                  child: Text('لا يوجد اختبار لهذه المحاضرة حاليًا.'),
+                )
+              else
+                for (final quiz in lessonQuizzes)
+                  Card(
+                    child: ListTile(
+                      leading: const Icon(Icons.quiz_outlined),
+                      title: Text(text(quiz, 'title')),
+                      subtitle: Text(
+                        '${quiz['kind'] == 'homework' ? 'واجب' : 'اختبار'} • ${quiz['time_minutes'] == 0 ? 'بدون توقيت' : '${quiz['time_minutes']} دقيقة'}',
+                      ),
+                      trailing: const Icon(Icons.chevron_left),
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => TakeQuiz(
+                            store: widget.store,
+                            quiz: quiz,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+              const SizedBox(height: 20),
+              Text(
+                'ملزمة المحاضرة',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
               if (text(source, 'attachment').isNotEmpty)
                 OutlinedButton.icon(
-                  onPressed: () => launchUrl(
-                    Uri.parse(text(source, 'attachment')),
-                    mode: LaunchMode.externalApplication,
-                  ),
+                  onPressed: () async {
+                    widget.store.track('pdf_open', {
+                      'course_id': '${widget.lesson['course_id']}',
+                      'lesson_id': '${widget.lesson['id']}',
+                    });
+                    await launchUrl(
+                      Uri.parse(text(source, 'attachment')),
+                      mode: LaunchMode.externalApplication,
+                    );
+                  },
                   icon: const Icon(Icons.description_outlined),
-                  label: const Text('ملزمة الدرس'),
+                  label: const Text('فتح / تحميل ملف PDF'),
+                ),
+              if (text(source, 'attachment').isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 12),
+                  child: Text('لا توجد ملزمة PDF لهذه المحاضرة حاليًا.'),
                 ),
               if (youtube != null || drive != null)
                 const Padding(

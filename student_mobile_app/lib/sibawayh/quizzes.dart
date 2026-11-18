@@ -114,6 +114,12 @@ class _TakeQuizState extends State<TakeQuiz> {
         field: 'quiz_id',
         equalTo: widget.quiz['id'],
       );
+      widget.store.track('quiz_open', {
+        'course_id': '${widget.quiz['course_id']}',
+        'quiz_id': '${widget.quiz['id']}',
+        if (text(widget.quiz, 'lesson_id').isNotEmpty)
+          'lesson_id': text(widget.quiz, 'lesson_id'),
+      });
       if (!mounted) return;
       setState(() {
         attempt = a;
@@ -150,6 +156,10 @@ class _TakeQuizState extends State<TakeQuiz> {
     setState(() => busy = true);
     try {
       await widget.store.submitAttempt(attempt!['id'], answers);
+      widget.store.track('quiz_submit', {
+        'course_id': '${widget.quiz['course_id']}',
+        'quiz_id': '${widget.quiz['id']}',
+      });
       timer?.cancel();
       final saved = await widget.store.db
           .doc('attempts/${attempt!['id']}')
@@ -323,8 +333,9 @@ class QuizResult extends StatelessWidget {
 }
 
 class AdminQuizzes extends StatefulWidget {
-  const AdminQuizzes({super.key, required this.store});
+  const AdminQuizzes({super.key, required this.store, this.lesson});
   final SibStore store;
+  final RowData? lesson;
   @override
   State<AdminQuizzes> createState() => _AdminQuizzesState();
 }
@@ -338,56 +349,89 @@ class _AdminQuizzesState extends State<AdminQuizzes> {
   }
 
   void reload() {
-    rows = widget.store.list('quizzes');
+    rows = widget.store.list('quizzes').then(
+      (items) => widget.lesson == null
+          ? items
+          : items
+                .where((q) => q['lesson_id'] == widget.lesson!['id'])
+                .toList(),
+    );
   }
 
   Future<void> edit([RowData? quiz]) async {
     final courses = await widget.store.courses(admin: true);
+    final lessons = await widget.store.list('lessons');
     if (!mounted) return;
     if (courses.isEmpty) {
       message(context, 'أضف كورسًا أولًا');
       return;
     }
+    final courseNames = <String, String>{
+      for (final c in courses) '${c['id']}': text(c, 'title'),
+    };
+    final fixedLesson = widget.lesson;
+    final fields = <EditField>[
+      const EditField('title', 'العنوان'),
+      if (fixedLesson == null) ...[
+        EditField('course_id', 'الكورس', options: courseNames),
+        EditField(
+          'lesson_id',
+          'المحاضرة المرتبطة',
+          options: {
+            '': 'عام للكورس — غير مرتبط بمحاضرة',
+            for (final l in lessons)
+              '${l['id']}':
+                  '${courseNames[l['course_id']] ?? 'كورس'} — ${text(l, 'title')}',
+          },
+        ),
+      ],
+      const EditField(
+        'kind',
+        'النوع',
+        options: {'quiz': 'اختبار', 'homework': 'واجب'},
+      ),
+      const EditField('description', 'التعليمات', multiline: true),
+      const EditField(
+        'time_minutes',
+        'الدقائق، صفر بدون توقيت',
+        number: true,
+      ),
+      const EditField('position', 'الترتيب', number: true),
+      const EditField('published', 'منشور للطلبة', toggle: true),
+      const EditField(
+        'show_results',
+        'عرض النتائج المصححة للطلبة',
+        toggle: true,
+      ),
+    ];
     await editRecord(
       context,
       quiz == null ? 'إضافة اختبار / واجب' : 'تعديل الاختبار',
-      [
-        const EditField('title', 'العنوان'),
-        EditField(
-          'course_id',
-          'الكورس',
-          options: {for (final c in courses) c['id']: text(c, 'title')},
-        ),
-        const EditField(
-          'kind',
-          'النوع',
-          options: {'quiz': 'اختبار', 'homework': 'واجب'},
-        ),
-        const EditField('description', 'التعليمات', multiline: true),
-        const EditField(
-          'time_minutes',
-          'الدقائق، صفر بدون توقيت',
-          number: true,
-        ),
-        const EditField('position', 'الترتيب', number: true),
-        const EditField('published', 'منشور للطلبة', toggle: true),
-        const EditField(
-          'show_results',
-          'عرض النتائج المصححة للطلبة',
-          toggle: true,
-        ),
-      ],
-      quiz ??
-          {
-            'course_id': courses.first['id'],
-            'kind': 'quiz',
-            'time_minutes': 0,
-            'position': 1,
-            'published': false,
-            'show_results': false,
-          },
+      fields,
+      {
+        ...?quiz,
+        'course_id': fixedLesson?['course_id'] ??
+            quiz?['course_id'] ??
+            courses.first['id'],
+        'lesson_id': fixedLesson?['id'] ?? quiz?['lesson_id'] ?? '',
+        'kind': quiz?['kind'] ?? 'quiz',
+        'time_minutes': quiz?['time_minutes'] ?? 0,
+        'position': quiz?['position'] ?? 1,
+        'published': quiz?['published'] ?? false,
+        'show_results': quiz?['show_results'] ?? false,
+      },
       (d) async {
+        if (fixedLesson != null) {
+          d['course_id'] = fixedLesson['course_id'];
+          d['lesson_id'] = fixedLesson['id'];
+        }
         requireText(d, 'title', 'العنوان');
+        final lessonId = text(d, 'lesson_id');
+        if (lessonId.isNotEmpty) {
+          final selected = lessons.where((l) => l['id'] == lessonId).toList();
+          if (selected.isEmpty || selected.first['course_id'] != d['course_id'])
+            throw StateError('المحاضرة المختارة لا تتبع هذا الكورس');
+        }
         if ((d['time_minutes'] as num) > 180 ||
             d['time_minutes'] != (d['time_minutes'] as num).round())
           throw StateError('مدة الاختبار حتى ١٨٠ دقيقة');
@@ -400,7 +444,11 @@ class _AdminQuizzesState extends State<AdminQuizzes> {
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
-      title: const Text('الاختبارات والواجبات'),
+      title: Text(
+        widget.lesson == null
+            ? 'الاختبارات والواجبات'
+            : 'اختبارات: ${text(widget.lesson!, 'title')}',
+      ),
       actions: [IconButton(onPressed: edit, icon: const Icon(Icons.add))],
     ),
     body: FutureBuilder<List<RowData>>(
@@ -411,6 +459,11 @@ class _AdminQuizzesState extends State<AdminQuizzes> {
         return ListView(
           padding: const EdgeInsets.all(18),
           children: [
+            if (snap.data!.isEmpty)
+              const Padding(
+                padding: EdgeInsets.all(30),
+                child: Text('لا توجد اختبارات مرتبطة بعد.'),
+              ),
             for (final q in snap.data!)
               Card(
                 child: Padding(
@@ -422,7 +475,9 @@ class _AdminQuizzesState extends State<AdminQuizzes> {
                         text(q, 'title'),
                         style: Theme.of(context).textTheme.titleLarge,
                       ),
-                      Text(q['published'] == true ? 'منشور' : 'مخفي'),
+                      Text(
+                        '${q['published'] == true ? 'منشور' : 'مخفي'} • ${text(q, 'lesson_id').isEmpty ? 'عام للكورس' : 'مرتبط بمحاضرة'}',
+                      ),
                       Wrap(
                         spacing: 8,
                         children: [

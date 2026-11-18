@@ -195,6 +195,16 @@ class SibStore extends ChangeNotifier {
     if (!owner) throw StateError('هذه الوظيفة لحساب المالك فقط');
   }
 
+  void track(String name, [Map<String, Object>? parameters]) {
+    if (!ready) return;
+    unawaited(
+      FirebaseAnalytics.instance.logEvent(
+        name: name,
+        parameters: parameters,
+      ),
+    );
+  }
+
   void _updateDeviceVerification() {
     if (owner) {
       deviceVerified = true;

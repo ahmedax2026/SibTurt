@@ -1163,24 +1163,48 @@ class _AdminLessonsState extends State<AdminLessons> {
                     '${text(l, 'subject')} • ${l['published'] == true ? 'منشورة' : 'مخفية'}',
                   ),
                   onTap: () => edit(l),
-                  trailing: IconButton(
-                    tooltip: l['published'] == true ? 'إخفاء' : 'إعادة النشر',
-                    onPressed: () async {
-                      try {
-                        await widget.store.db.doc('lessons/${l['id']}').update({
-                          'published': l['published'] != true,
-                        });
-                        await widget.store.audit('lesson_visibility', l['id']);
-                        if (mounted) setState(reload);
-                      } catch (e) {
-                        if (context.mounted) message(context, e);
-                      }
-                    },
-                    icon: Icon(
-                      l['published'] == true
-                          ? Icons.visibility_off_outlined
-                          : Icons.visibility_outlined,
-                    ),
+                  trailing: Wrap(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        tooltip: 'اختبارات المحاضرة',
+                        onPressed: () => Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => AdminQuizzes(
+                              store: widget.store,
+                              lesson: l,
+                            ),
+                          ),
+                        ),
+                        icon: const Icon(Icons.quiz_outlined),
+                      ),
+                      IconButton(
+                        tooltip: l['published'] == true
+                            ? 'إخفاء'
+                            : 'إعادة النشر',
+                        onPressed: () async {
+                          try {
+                            await widget.store.db
+                                .doc('lessons/${l['id']}')
+                                .update({
+                                  'published': l['published'] != true,
+                                });
+                            await widget.store.audit(
+                              'lesson_visibility',
+                              l['id'],
+                            );
+                            if (mounted) setState(reload);
+                          } catch (e) {
+                            if (context.mounted) message(context, e);
+                          }
+                        },
+                        icon: Icon(
+                          l['published'] == true
+                              ? Icons.visibility_off_outlined
+                              : Icons.visibility_outlined,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
