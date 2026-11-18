@@ -620,6 +620,7 @@ class SibStore extends ChangeNotifier {
     String requestId,
   ) async {
     requireOwner();
+    if (days < 1 || days > 365) throw StateError('المدة من يوم إلى ٣٦٥ يومًا');
     final sub = db.doc('users/$student/subscriptions/$courseId');
     final receipt = db.doc('renewals/$requestId');
     await db.runTransaction((tx) async {
@@ -629,8 +630,8 @@ class SibStore extends ChangeNotifier {
       final old = await tx.get(sub);
       final c = course.data()!;
       if (c['kind'] == 'school' &&
-          (user.data()?['grade'] != c['grade'] || days != 30))
-        throw StateError('الاشتراك الدراسي لصف الطالب ومدته ٣٠ يومًا');
+          user.data()?['grade'] != c['grade'])
+        throw StateError('الاشتراك الدراسي يجب أن يطابق صف الطالب');
       final oldEnd = seconds(old.data()?['expires_at']);
       final expires =
           max(DateTime.now().millisecondsSinceEpoch ~/ 1000, oldEnd) +
