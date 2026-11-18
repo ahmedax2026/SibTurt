@@ -1163,7 +1163,7 @@ class _AdminLessonsState extends State<AdminLessons> {
                     '${text(l, 'subject')} • ${l['published'] == true ? 'منشورة' : 'مخفية'}',
                   ),
                   onTap: () => edit(l),
-                  trailing: Wrap(
+                  trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       IconButton(
