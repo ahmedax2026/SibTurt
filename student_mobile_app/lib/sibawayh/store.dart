@@ -66,9 +66,10 @@ class SibStore extends ChangeNotifier {
       : 'ST-${uid!.substring(0, min(uid!.length, 12)).toUpperCase()}';
   FirebaseFirestore get db =>
       _db ?? (throw StateError('إعداد Firebase لم يكتمل بعد'));
-  bool get needsProfile => ready && uid != null && profile == null;
+  String? previewGrade;
+  bool get needsProfile => ready && uid != null && !owner && profile == null;
   bool get signedIn =>
-      profile != null && uid != null && (owner || deviceVerified);
+      uid != null && (owner || (profile != null && deviceVerified));
 
   Future<void> initialize() async {
     const apiKey = String.fromEnvironment('FIREBASE_API_KEY');
@@ -411,7 +412,7 @@ class SibStore extends ChangeNotifier {
     final school = await list(
       'courses',
       field: 'grade',
-      equalTo: profile?['grade'],
+      equalTo: owner ? previewGrade : profile?['grade'],
       published: true,
     );
     final develop = await list(
