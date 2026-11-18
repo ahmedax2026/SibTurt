@@ -664,51 +664,39 @@ class _AdminStudentDetailState extends State<AdminStudentDetail> {
   }
 
   Future<void> renew(RowData c, {bool replaceDuration = false}) async {
-    final days = TextEditingController(text: '30');
     final result = await showDialog<int>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(replaceDuration ? 'تحديد مدة جديدة من اليوم' : 'تفعيل / تجديد الاشتراك'),
+        title: Text(replaceDuration ? 'تحديد مدة جديدة' : 'تفعيل / تجديد'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(text(c, 'title')),
-            const SizedBox(height: 16),
-            Wrap(
-              spacing: 6,
-              children: [1, 7, 30, 60, 90, 120, 180, 365].map((n) => ActionChip(
-                label: Text(n % 30 == 0 ? '${n ~/ 30} شهر' : '$n يوم'),
-                onPressed: () => days.text = '$n',
-              )).toList(),
+            const SizedBox(height: 12),
+            FilledButton.icon(
+              onPressed: () => Navigator.pop(ctx, 1),
+              icon: const Icon(Icons.timer_outlined),
+              label: const Text('تجريبي — 24 ساعة'),
             ),
-            TextField(
-                controller: days,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'عدد الأيام'),
-              ),
-            Text(replaceDuration ? 'تستبدل المدة الحالية وتبدأ من اليوم' : 'تُضاف المدة على الاشتراك المتبقي'),
+            const SizedBox(height: 8),
+            FilledButton.icon(
+              onPressed: () => Navigator.pop(ctx, 30),
+              icon: const Icon(Icons.calendar_month),
+              label: const Text('اشتراك شهري — 30 يومًا'),
+            ),
+            const SizedBox(height: 8),
+            Text(replaceDuration ? 'تبدأ المدة من اليوم' : 'الشهري يمدد المدة المتبقية، والتجريبي يبدأ من اليوم'),
           ],
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('إلغاء'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, int.tryParse(days.text)),
-            child: const Text('تم الدفع — فعّل'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
         ],
       ),
     );
-    days.dispose();
     if (result == null) return;
-    if (result < 1 || result > 365) {
-      if (mounted) message(context, 'المدة من يوم إلى ٣٦٥ يومًا');
-      return;
-    }
     final request = widget.store.db.collection('renewals').doc().id;
-    await run(() => widget.store.renew(user['id'], c['id'], result, request, replaceDuration: replaceDuration));
+    await run(() => widget.store.renew(user['id'], c['id'], result, request, replaceDuration: replaceDuration || result == 1));
   }
 
   @override
