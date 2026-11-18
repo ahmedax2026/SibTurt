@@ -718,8 +718,72 @@ class _AdminStudentDetailState extends State<AdminStudentDetail> {
       padding: const EdgeInsets.all(20),
       children: [
         Text('إدارة الاشتراكات والمدة', style: Theme.of(context).textTheme.headlineSmall),
-        const Text('انتقل إلى الاشتراكات أسفل بيانات الطالب لتفعيل الكورس أو تجديده.'),
-        Card(
+        const Text('اختر الكورس والمدة من القائمة التالية. بيانات الطالب بالأسفل.'),
+        FutureBuilder<List<RowData>>(
+          future: rows,
+          builder: (context, snap) {
+            if (snap.hasError) return const Text('تعذر تحميل الكورسات. تحقق من صلاحيات الإدارة والاتصال.');
+            if (!snap.hasData)
+              return const Center(child: CircularProgressIndicator());
+            if (snap.data!.isEmpty) {
+              return const Text('لا توجد كورسات مسجلة. أضف كورسًا من إدارة الكورسات أولًا.');
+            }
+            return Column(
+              children: [
+                for (final c in snap.data!)
+                  StreamBuilder<DocumentSnapshot<RowData>>(
+                    stream: widget.store.db
+                        .doc('users/${user['id']}/subscriptions/${c['id']}')
+                        .snapshots(),
+                    builder: (context, sub) => Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(20),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Text(
+                              text(c, 'title'),
+                              style: Theme.of(context).textTheme.titleMedium,
+                            ),
+                            Text(c['kind'] == 'school' ? 'دراسي — ${text(c, 'grade')}' : 'تطوير'),
+                            if (c['kind'] == 'school' && c['grade'] != user['grade']) const Text('عدّل صف الطالب لتفعيل هذا الكورس'),
+                            const SizedBox(height: 10),
+                            Text(
+                              'ينتهي: ${dateLabel(sub.data?.data()?['expires_at'])}',
+                            ),
+                            const SizedBox(height: 12),
+                            FilledButton(
+                              onPressed: busy || (c['kind'] == 'school' && c['grade'] != user['grade']) ? null : () => renew(c),
+                              child: const Text('تفعيل / تجديد'),
+                            ),
+                            if (sub.data?.exists == true)
+                              OutlinedButton(onPressed: busy ? null : () => renew(c, replaceDuration: true), child: const Text('تعديل المدة من اليوم')),
+                            if (sub.data?.exists == true)
+                              TextButton(
+                                onPressed: busy
+                                    ? null
+                                    : () => run(
+                                        () => widget.store.revoke(
+                                          user['id'],
+                                          c['id'],
+                                        ),
+                                      ),
+                                child: const Text(
+                                  'إلغاء الاشتراك',
+                                  style: TextStyle(color: Colors.red),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            );
+          },
+        ),
+        const SizedBox(height: 18),
+                Card(
           child: Padding(
             padding: const EdgeInsets.all(20),
             child: Column(
@@ -833,69 +897,7 @@ class _AdminStudentDetailState extends State<AdminStudentDetail> {
           ),
         ),
         const SizedBox(height: 18),
-        FutureBuilder<List<RowData>>(
-          future: rows,
-          builder: (context, snap) {
-            if (snap.hasError) return const Text('تعذر تحميل الكورسات. تحقق من صلاحيات الإدارة والاتصال.');
-            if (!snap.hasData)
-              return const Center(child: CircularProgressIndicator());
-            if (!snap.data!.any((c) => c['kind'] == 'develop' || c['grade'] == user['grade'])) {
-              return const Text('لا توجد كورسات مطابقة لصف الطالب. أضف كورسًا لهذا الصف أو عدّل صف الطالب من بياناته.');
-            }
-            return Column(
-              children: [
-                for (final c in snap.data!.where(
-                  (c) => c['kind'] == 'develop' || c['grade'] == user['grade'],
-                ))
-                  StreamBuilder<DocumentSnapshot<RowData>>(
-                    stream: widget.store.db
-                        .doc('users/${user['id']}/subscriptions/${c['id']}')
-                        .snapshots(),
-                    builder: (context, sub) => Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(20),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Text(
-                              text(c, 'title'),
-                              style: Theme.of(context).textTheme.titleMedium,
-                            ),
-                            const SizedBox(height: 10),
-                            Text(
-                              'ينتهي: ${dateLabel(sub.data?.data()?['expires_at'])}',
-                            ),
-                            const SizedBox(height: 12),
-                            FilledButton(
-                              onPressed: busy ? null : () => renew(c),
-                              child: const Text('تفعيل / تجديد'),
-                            ),
-                            if (sub.data?.exists == true)
-                              OutlinedButton(onPressed: busy ? null : () => renew(c, replaceDuration: true), child: const Text('تعديل المدة من اليوم')),
-                            if (sub.data?.exists == true)
-                              TextButton(
-                                onPressed: busy
-                                    ? null
-                                    : () => run(
-                                        () => widget.store.revoke(
-                                          user['id'],
-                                          c['id'],
-                                        ),
-                                      ),
-                                child: const Text(
-                                  'إلغاء الاشتراك',
-                                  style: TextStyle(color: Colors.red),
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
-            );
-          },
-        ),
+
       ],
     ),
   );
