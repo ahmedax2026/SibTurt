@@ -676,8 +676,8 @@ class _AdminStudentDetailState extends State<AdminStudentDetail> {
             const SizedBox(height: 16),
             Wrap(
               spacing: 6,
-              children: [1, 7, 30, 90, 365].map((n) => ActionChip(
-                label: Text('$n يوم'),
+              children: [1, 7, 30, 60, 90, 120, 180, 365].map((n) => ActionChip(
+                label: Text(n % 30 == 0 ? '${n ~/ 30} شهر' : '$n يوم'),
                 onPressed: () => days.text = '$n',
               )).toList(),
             ),
@@ -1055,6 +1055,39 @@ class _AdminLessonsState extends State<AdminLessons> {
     );
   }
 
+  final extraSections = <String>{};
+
+  Future<void> addSection() async {
+    var name = '';
+    final value = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('إضافة قسم'),
+        content: TextField(
+          autofocus: true,
+          decoration: const InputDecoration(labelText: 'اسم القسم'),
+          onChanged: (v) => name = v.trim(),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, name), child: const Text('إضافة')),
+        ],
+      ),
+    );
+    if (value == null || value.isEmpty || !mounted) return;
+    setState(() => extraSections.add(value));
+    try {
+      await widget.store.db.doc('courses/${widget.course['id']}').update({
+        'sections': FieldValue.arrayUnion([value]),
+      });
+    } catch (e) {
+      if (mounted) {
+        setState(() => extraSections.remove(value));
+        message(context, e);
+      }
+    }
+  }
+
   Future<void> edit([RowData? lesson]) async {
     RowData source = {};
     if (lesson != null) {
@@ -1063,6 +1096,14 @@ class _AdminLessonsState extends State<AdminLessons> {
               .data() ??
           {};
     }
+    final courseDoc = await widget.store.db.doc('courses/${widget.course['id']}').get();
+    final sections = <String>{
+      ...widget.store.subjects,
+      ...List<String>.from(courseDoc.data()?['sections'] ?? []),
+      ...extraSections,
+      if (lesson != null) text(lesson, 'subject'),
+      'طور نفسك',
+    };
     if (!mounted) return;
     await editRecord(
       context,
@@ -1073,7 +1114,7 @@ class _AdminLessonsState extends State<AdminLessons> {
           'subject',
           'القسم',
           options: {
-            for (final s in [...widget.store.subjects, 'طور نفسك']) s: s,
+            for (final s in sections) s: s,
           },
         ),
         const EditField(
@@ -1097,7 +1138,7 @@ class _AdminLessonsState extends State<AdminLessons> {
       {
         ...?(lesson),
         ...source,
-        'subject': lesson?['subject'] ?? widget.store.subjects.first,
+        'subject': lesson?['subject'] ?? sections.first,
         'provider': source['provider'] ?? 'youtube',
         'position': lesson?['position'] ?? 1,
         'published': lesson?['published'] ?? true,
@@ -1151,7 +1192,7 @@ class _AdminLessonsState extends State<AdminLessons> {
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
       title: Text(text(widget.course, 'title')),
-      actions: [IconButton(onPressed: edit, icon: const Icon(Icons.add))],
+      actions: [IconButton(onPressed: addSection, tooltip: 'إضافة قسم', icon: const Icon(Icons.create_new_folder_outlined)), IconButton(onPressed: edit, tooltip: 'إضافة درس', icon: const Icon(Icons.add))],
     ),
     body: FutureBuilder<List<RowData>>(
       future: rows,
