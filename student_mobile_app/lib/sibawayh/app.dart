@@ -117,9 +117,9 @@ class SibawayhApp extends StatelessWidget {
   Widget build(BuildContext context) => AnimatedBuilder(
     animation: store,
     builder: (context, _) => MaterialApp(
-      navigatorObservers: [
-        FirebaseAnalyticsObserver(analytics: FirebaseAnalytics.instance),
-      ],
+      navigatorObservers: store.ready
+          ? [FirebaseAnalyticsObserver(analytics: FirebaseAnalytics.instance)]
+          : const [],
       title: text(store.brand, 'title', 'سيبويه'),
       debugShowCheckedModeBanner: false,
       locale: const Locale('ar'),
