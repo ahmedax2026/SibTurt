@@ -9,7 +9,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:video_player/video_player.dart';
-import 'package:youtube_player_embed/youtube_player_embed.dart' as embed;
+import 'package:universal_youtube_player/universal_youtube_player.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -31,6 +31,8 @@ class _LessonPlayerState extends State<LessonPlayer>
   VideoPlayerController? video;
   VoidCallback? pauseYoutube;
   String? youtubeId;
+  UniversalYoutubeController? universal;
+  StreamSubscription<Duration>? universalProgress;
   double youtubePosition = 0;
   WebViewController? drive;
   Timer? checkTimer, saveTimer, controlsTimer;
@@ -124,7 +126,7 @@ class _LessonPlayerState extends State<LessonPlayer>
     if (!mounted) return;
     video?.pause();
     pauseYoutube?.call();
-    if (youtubeId != null) { pauseYoutube = null; youtubeId = null; loaded = false; }
+    if (youtubeId != null) { universalProgress?.cancel(); universal?.dispose(); universal = null; pauseYoutube = null; youtubeId = null; loaded = false; }
     if (drive != null) {
       drive!.loadRequest(Uri.parse('about:blank'));
       drive = null;
@@ -183,6 +185,13 @@ class _LessonPlayerState extends State<LessonPlayer>
         }
         youtubeId = id;
         youtubePosition = start;
+        final c = UniversalYoutubeController();
+        universal = c;
+        universalProgress = c.positionStream.listen((p) => youtubePosition = p.inMilliseconds / 1000);
+        pauseYoutube = () { c.pause(); };
+        await c.load(url, autoPlay: false);
+        if (!mounted || universal != c) return;
+        if (start > 0) await c.seek(Duration(seconds: start.toInt()));
       } else if (provider == 'drive') {
         final match = RegExp(r'/file/d/([A-Za-z0-9_-]+)').firstMatch(url);
         final id = match?.group(1) ?? Uri.tryParse(url)?.queryParameters['id'];
@@ -338,6 +347,8 @@ class _LessonPlayerState extends State<LessonPlayer>
     video?.removeListener(onTick);
     video?.dispose();
     pauseYoutube?.call();
+    universalProgress?.cancel();
+    universal?.dispose();
     elapsed.stop();
     SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
     super.dispose();
@@ -379,18 +390,10 @@ class _LessonPlayerState extends State<LessonPlayer>
       );
     if (!loaded) return const Center(child: CircularProgressIndicator());
     if (youtubeId != null)
-      return embed.YoutubePlayerEmbed(
+      return UniversalYoutubePlayer(
         key: ValueKey(youtubeId),
-        videoId: youtubeId!,
-        autoPlay: false,
-        enabledShareButton: false,
-        hidenChannelImage: true,
+        controller: universal!,
         aspectRatio: 16 / 9,
-        callBackVideoController: (controller) {
-          if (!mounted || reason.isNotEmpty) { controller.pauseVideo(); return; }
-          pauseYoutube = () { controller.pauseVideo(); };
-        },
-        onVideoTimeUpdate: (position) => youtubePosition = position,
       );
     if (drive != null)
       return SizedBox(
