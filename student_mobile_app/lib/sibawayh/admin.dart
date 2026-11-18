@@ -678,7 +678,7 @@ class _AdminStudentDetailState extends State<AdminStudentDetail> {
                 controller: days,
                 keyboardType: TextInputType.number,
                 decoration: const InputDecoration(labelText: 'عدد الأيام'),
-              )
+              ),
             const Text('تُضاف المدة على الاشتراك المتبقي'),
           ],
         ),
