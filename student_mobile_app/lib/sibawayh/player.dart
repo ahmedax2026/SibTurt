@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 import 'dart:async';
 import 'dart:math';
+import 'dart:convert';
+import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
@@ -202,7 +204,7 @@ class _LessonPlayerState extends State<LessonPlayer>
           )
           ..loadRequest(Uri.https('drive.google.com', '/file/d/$id/preview'));
       } else {
-        final uri = Uri.tryParse(url);
+        final uri = provider == 'okru' ? await resolveOk(url) : Uri.tryParse(url);
         if (uri?.scheme != 'https')
           throw StateError('الفيديو يحتاج رابط HTTPS صالحًا');
         final c = VideoPlayerController.networkUrl(uri!);
@@ -229,8 +231,67 @@ class _LessonPlayerState extends State<LessonPlayer>
     }
   }
 
+  bool refreshingOk = false;
+  int okRetries = 0;
+  static Future<Uri> resolveOk(String link) async {
+    final uri = Uri.parse(link);
+    final match = RegExp(r'^/video(?:embed)?/(\d+)$').firstMatch(uri.path);
+    if (!['ok.ru', 'www.ok.ru', 'm.ok.ru'].contains(uri.host) || match == null) {
+      throw StateError('رابط OK.ru غير صحيح');
+    }
+    final client = HttpClient()..connectionTimeout = const Duration(seconds: 15);
+    try {
+      final req = await client.postUrl(Uri.https('www.ok.ru', '/dk', {'cmd': 'videoPlayerMetadata'}));
+      req.headers.contentType = ContentType('application', 'x-www-form-urlencoded');
+      req.write('mid=${match.group(1)}');
+      final res = await req.close().timeout(const Duration(seconds: 20));
+      if (res.statusCode != 200) throw StateError('OK.ru unavailable');
+      final data = jsonDecode(await res.transform(utf8.decoder).join().timeout(const Duration(seconds: 20)));
+      final streams = data['videos'] as List? ?? [];
+      const ranks = ['mobile', 'lowest', 'low', 'sd', 'hd', 'full', 'quad', 'ultra'];
+      final candidates = streams.whereType<Map>().where((v) {
+        final u = Uri.tryParse(v['url']?.toString() ?? '');
+        return u?.scheme == 'https' && (u!.host.endsWith('.okcdn.ru') || u.host.endsWith('.vkuser.net'));
+      }).toList();
+      candidates.sort((a,b) => ranks.indexOf(b['name'].toString()).compareTo(ranks.indexOf(a['name'].toString())));
+      if (candidates.isEmpty) throw StateError('No available stream');
+      return Uri.parse(candidates.first['url'].toString());
+    } finally {
+      client.close(force: true);
+    }
+  }
+
+  Future<void> refreshOk() async {
+    if (refreshingOk || okRetries >= 2 || !mounted || reason.isNotEmpty) return;
+    refreshingOk = true;
+    okRetries++;
+    final old = video;
+    VideoPlayerController? next;
+    try {
+      final position = old?.value.position ?? Duration.zero;
+      next = VideoPlayerController.networkUrl(await resolveOk(text(source, 'url')));
+      await next.initialize();
+      await next.seekTo(position);
+      if (!mounted || reason.isNotEmpty || video != old) return;
+      old?.removeListener(onTick);
+      video = next;
+      next = null;
+      video!.addListener(onTick);
+      await old?.dispose();
+      if (mounted) setState(() {});
+    } catch (_) {
+      if (mounted) setState(() => failure = 'تعذر تجديد رابط الفيديو. أعد فتح المحاضرة.');
+    } finally {
+      await next?.dispose();
+      refreshingOk = false;
+    }
+  }
+
   void onTick() {
-    if (mounted) setState(() {});
+    if (mounted) {
+      setState(() {});
+      if (provider == 'okru' && video?.value.hasError == true) unawaited(refreshOk());
+    }
   }
 
   Future<void> save() async {
