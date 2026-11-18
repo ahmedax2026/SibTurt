@@ -75,12 +75,14 @@ class SibStore extends ChangeNotifier {
     const sender = String.fromEnvironment('FIREBASE_MESSAGING_SENDER_ID');
     const project = String.fromEnvironment('FIREBASE_PROJECT_ID');
     try {
-      final hasDefines = [apiKey, appId, sender, project].every(
-        (value) => value.isNotEmpty,
-      );
+      final hasDefines = [
+        apiKey,
+        appId,
+        sender,
+        project,
+      ].every((value) => value.isNotEmpty);
       if (!hasDefines && !useNativeFirebase) {
-        setupError =
-            'نسخة معاينة: ربط مشروع Firebase متاح في تطبيق أندرويد.';
+        setupError = 'نسخة معاينة: ربط مشروع Firebase متاح في تطبيق أندرويد.';
         return;
       }
       await Firebase.initializeApp(
@@ -284,9 +286,7 @@ class SibStore extends ChangeNotifier {
       _deviceId = text(identity, 'id');
       deviceVerified = true;
       await refreshProfile();
-      unawaited(
-        FirebaseAnalytics.instance.logSignUp(signUpMethod: 'email'),
-      );
+      unawaited(FirebaseAnalytics.instance.logSignUp(signUpMethod: 'email'));
     } catch (e) {
       await _auth!.signOut();
       rethrow;

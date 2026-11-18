@@ -82,3 +82,5 @@ Firebase project config وحساب المالك ورقم WhatsApp غير متو�
 - أضيف Firebase Analytics الرسمي، مع جمع analytics وتسجيل signup/login وبدء الدرس وNavigator observer بدون إرسال الإيميل أو الهاتف كمعلمات.
 - لا توجد مفاتيح Admin SDK أو service account في المستودع. إعدادات client ليست بديلًا عن Rules أو App Check.
 - ما يزال يجب تأكيد تفعيل Authentication Email/Password وإنشاء Firestore في Console، ثم نشر قواعد `firebase/firestore.rules` وتجهيز وثيقتي المستخدم/الدور لحساب المالك.
+- نجحت مجموعة التحقق المرتبطة بالمشروع في GitHub Actions run https://github.com/ahmedax2026/SibTurt/actions/runs/44259801099: قواعد Firebase، `flutter analyze`، 344 اختبار Flutter، وبناء APK.
+- artifact المرتبط: `Sibawayh-Flutter-Trial` رقم `14407688682`. SHA-256 للـAPK: `0d41c3148c9d51f7ae7a878da130274f8d2261f57de667cf2f50a540f84b2ae6`.
