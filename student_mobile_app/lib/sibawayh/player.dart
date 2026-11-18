@@ -210,7 +210,7 @@ class _LessonPlayerState extends State<LessonPlayer>
       }
     } catch (e) {
       if (mounted)
-        setState(() => failure = e.toString().replaceFirst('Bad state: ', ''));
+        setState(() => failure = 'تعذر تشغيل الفيديو. تحقق من الاتصال أو تواصل مع الإدارة.');
     } finally {
       opening = false;
       if (mounted) unawaited(enforce());
@@ -308,7 +308,7 @@ class _LessonPlayerState extends State<LessonPlayer>
       return YoutubePlayer(controller: youtube!, aspectRatio: 16 / 9);
     if (drive != null)
       return SizedBox(
-        height: full ? MediaQuery.sizeOf(context).height : 260,
+        height: full ? MediaQuery.sizeOf(context).height : MediaQuery.sizeOf(context).width * 9 / 16,
         child: WebViewWidget(controller: drive!),
       );
     final c = video;
@@ -348,6 +348,11 @@ class _LessonPlayerState extends State<LessonPlayer>
                     color: Colors.white,
                   ),
                 ),
+                IconButton(
+                  tooltip: 'رجوع 10 ثوانٍ',
+                  onPressed: () => c.seekTo(Duration(milliseconds: max(0, c.value.position.inMilliseconds - 10000))),
+                  icon: const Icon(Icons.replay_10, color: Colors.white),
+                ),
                 Expanded(
                   child: Slider(
                     value: c.value.position.inMilliseconds.toDouble().clamp(
@@ -358,6 +363,17 @@ class _LessonPlayerState extends State<LessonPlayer>
                     onChanged: (v) =>
                         c.seekTo(Duration(milliseconds: v.toInt())),
                   ),
+                ),
+                IconButton(
+                  tooltip: 'تقديم 10 ثوانٍ',
+                  onPressed: () => c.seekTo(Duration(milliseconds: min(c.value.duration.inMilliseconds, c.value.position.inMilliseconds + 10000))),
+                  icon: const Icon(Icons.forward_10, color: Colors.white),
+                ),
+                PopupMenuButton<double>(
+                  tooltip: 'سرعة التشغيل',
+                  onSelected: (speed) => c.setPlaybackSpeed(speed),
+                  itemBuilder: (_) => [for (final speed in [0.5, 0.75, 1.0, 1.25, 1.5, 2.0]) PopupMenuItem(value: speed, child: Text('${speed}x'))],
+                  child: Padding(padding: const EdgeInsets.all(8), child: Text('${c.value.playbackSpeed}x', style: const TextStyle(color: Colors.white))),
                 ),
                 IconButton(
                   onPressed: toggleFull,
@@ -394,11 +410,6 @@ class _LessonPlayerState extends State<LessonPlayer>
                 ),
               ),
               const SizedBox(height: 12),
-              SelectableText(
-                mark,
-                textDirection: TextDirection.ltr,
-                style: const TextStyle(fontSize: 10, color: Colors.brown),
-              ),
               const SizedBox(height: 15),
               Text(
                 text(widget.lesson, 'title'),
