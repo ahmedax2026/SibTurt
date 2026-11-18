@@ -7,7 +7,7 @@ import 'package:tutorloom/sibawayh/store.dart';
 
 void main(){
   test('unconfigured Firebase cannot register or grant owner access',()async{
-    final store=SibStore();await store.initialize();expect(store.ready,false);expect(store.owner,false);
+    final store=SibStore(useNativeFirebase:false);await store.initialize();expect(store.ready,false);expect(store.owner,false);
     expect(()=>store.requireOwner(),throwsStateError);
     await expectLater(store.register('أحمد محمد','01012345678',initialGrades.first,'a@example.test','long-password'),throwsStateError);
     store.dispose();
@@ -15,7 +15,7 @@ void main(){
   testWidgets('Arabic branded welcome opens real registration fields without host prompt',(tester)async{
     tester.view.physicalSize=const Size(430,932);tester.view.devicePixelRatio=1;
     addTearDown(tester.view.resetPhysicalSize);addTearDown(tester.view.resetDevicePixelRatio);
-    final store=SibStore();await store.initialize();
+    final store=SibStore(useNativeFirebase:false);await store.initialize();
     await tester.pumpWidget(SibawayhApp(store:store));await tester.pumpAndSettle();
     expect(find.text('ابدأ رحلتك'),findsOneWidget);expect(find.text('معاينة قبل ربط Firebase'),findsOneWidget);
     await tester.tap(find.text('ابدأ رحلتك'));await tester.pumpAndSettle();

@@ -44,6 +44,9 @@ String text(RowData data, String key, [String fallback = '']) =>
     '${data[key] ?? fallback}';
 
 class SibStore extends ChangeNotifier {
+  SibStore({this.useNativeFirebase = true});
+
+  final bool useNativeFirebase;
   static const _security = MethodChannel('sibawayh/security');
   FirebaseFirestore? _db;
   FirebaseAuth? _auth;
@@ -75,7 +78,7 @@ class SibStore extends ChangeNotifier {
       final hasDefines = [apiKey, appId, sender, project].every(
         (value) => value.isNotEmpty,
       );
-      if (!hasDefines && defaultTargetPlatform != TargetPlatform.android) {
+      if (!hasDefines && !useNativeFirebase) {
         setupError =
             'نسخة معاينة: ربط مشروع Firebase متاح في تطبيق أندرويد.';
         return;
