@@ -555,65 +555,79 @@ class _AdminQuestionsState extends State<AdminQuestions> {
                   .data() ??
               {};
     if (!mounted) return;
-    await editRecord(
-      context,
-      question == null ? 'إضافة سؤال' : 'تعديل السؤال',
-      const [
-        EditField('prompt', 'نص السؤال', multiline: true),
-        EditField(
-          'type',
-          'نوع السؤال',
-          options: {'mcq': 'اختيار من متعدد', 'essay': 'مقالي'},
-        ),
-        EditField('choices', 'الاختيارات، كل اختيار في سطر', multiline: true),
-        EditField(
-          'correct_index',
-          'رقم الاختيار الصحيح، يبدأ من ١',
-          number: true,
-        ),
-        EditField('model_answer', 'الإجابة النموذجية للمقالي', multiline: true),
-        EditField('points', 'درجة السؤال', number: true),
-        EditField('position', 'ترتيب السؤال', number: true),
-      ],
-      {
-        ...?(question),
-        ...key,
-        'choices': (question?['choices'] as List? ?? []).join('\n'),
-        'type': question?['type'] ?? 'mcq',
-        'correct_index': ((key['correct_index'] as num?) ?? 0) + 1,
-        'points': question?['points'] ?? 1,
-        'position': question?['position'] ?? 1,
-      },
-      (d) async {
-        requireText(d, 'prompt', 'نص السؤال');
-        final choices = text(
-          d,
-          'choices',
-        ).split('\n').map((s) => s.trim()).where((s) => s.isNotEmpty).toList();
-        final correct = (d['correct_index'] as num).toInt() - 1;
-        final points = d['points'] as num;
-        if (points <= 0 || points > 100)
-          throw StateError('الدرجة من ١ إلى ١٠٠');
-        if (d['type'] == 'mcq' &&
-            (choices.length < 2 ||
-                choices.length > 6 ||
-                correct < 0 ||
-                correct >= choices.length))
-          throw StateError('اكتب من اختيارين إلى ٦ اختيارات وحدد الصحيح');
-        await widget.store.saveQuestion(
-          question?['id'],
-          {
-            'quiz_id': widget.quiz['id'],
-            'course_id': widget.quiz['course_id'],
-            'prompt': d['prompt'],
-            'type': d['type'],
-            'choices': choices,
-            'points': points,
-            'position': d['position'],
-          },
-          {'correct_index': correct, 'model_answer': d['model_answer']},
-        );
-      },
+    final prompt = TextEditingController(text: text(question ?? {}, 'prompt'));
+    final model = TextEditingController(text: text(key, 'model_answer'));
+    final points = TextEditingController(text: '${question?['points'] ?? 1}');
+    final position = TextEditingController(text: '${question?['position'] ?? 1}');
+    final choices = List.generate(6, (i) {
+      final old = question?['choices'] as List? ?? [];
+      return TextEditingController(text: i < old.length ? '${old[i]}' : '');
+    });
+    var type = '${question?['type'] ?? 'mcq'}';
+    var correct = (key['correct_index'] as num?)?.toInt() ?? 0;
+    var busy = false;
+    String? error;
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(builder: (ctx, update) => AlertDialog(
+        icon: const Icon(Icons.quiz_outlined, color: Color(0xFFC6A15B)),
+        title: Text(question == null ? 'إضافة سؤال' : 'تعديل السؤال'),
+        content: SingleChildScrollView(child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            TextField(controller: prompt, maxLines: 3, decoration: const InputDecoration(labelText: 'نص السؤال')),
+            const SizedBox(height: 12),
+            DropdownButton<String>(value: type, isExpanded: true, items: const [
+              DropdownMenuItem(value: 'mcq', child: Text('اختيار من متعدد')),
+              DropdownMenuItem(value: 'essay', child: Text('مقالي')),
+            ], onChanged: busy ? null : (v) => update(() => type = v!)),
+            if (type == 'mcq') ...[
+              const Text('حدد الإجابة الصحيحة بجوار الاختيار'),
+              for (var i = 0; i < choices.length; i++)
+                Padding(padding: const EdgeInsets.symmetric(vertical: 5), child: Row(children: [
+                  IconButton(
+                    tooltip: 'تحديد الإجابة الصحيحة',
+                    color: correct == i ? const Color(0xFFC6A15B) : null,
+                    icon: Icon(correct == i ? Icons.check_circle : Icons.radio_button_unchecked),
+                    onPressed: busy ? null : () => update(() => correct = i),
+                  ),
+                  Expanded(child: TextField(controller: choices[i], decoration: InputDecoration(labelText: 'اختيار ${i+1}', helperText: correct == i ? 'الإجابة الصحيحة' : null))),
+                ])),
+            ] else TextField(controller: model, maxLines: 3, decoration: const InputDecoration(labelText: 'الإجابة النموذجية')),
+            TextField(controller: points, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'درجة السؤال')),
+            TextField(controller: position, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'ترتيب السؤال')),
+            if (error != null) Text(error!, style: const TextStyle(color: Colors.red)),
+          ],
+        )),
+        actions: [
+          TextButton(onPressed: busy ? null : () => Navigator.pop(ctx), child: const Text('إلغاء')),
+          FilledButton(onPressed: busy ? null : () async {
+            final p = num.tryParse(points.text);
+            final pos = int.tryParse(position.text);
+            final selected = choices[correct.clamp(0, 5).toInt()].text.trim();
+            final values = choices.map((c) => c.text.trim()).where((v) => v.isNotEmpty).toList();
+            if (prompt.text.trim().isEmpty || p == null || p <= 0 || p > 100 || pos == null || pos < 1 ||
+                (type == 'mcq' && (values.length < 2 || values.toSet().length != values.length || selected.isEmpty))) {
+              update(() => error = 'راجع السؤال والدرجة والترتيب والاختيارات الصحيحة دون تكرار');
+              return;
+            }
+            update(() { busy = true; error = null; });
+            try {
+              await widget.store.saveQuestion(question?['id'], {
+                'quiz_id': widget.quiz['id'], 'course_id': widget.quiz['course_id'],
+                'prompt': prompt.text.trim(), 'type': type,
+                'choices': type == 'mcq' ? values : <String>[],
+                'points': p, 'position': pos,
+              }, {'correct_index': type == 'mcq' ? values.indexOf(selected) : -1, 'model_answer': model.text.trim()});
+              if (ctx.mounted) Navigator.pop(ctx);
+            } catch (e) {
+              if (ctx.mounted) update(() { busy = false; error = '$e'; });
+            }
+          }, child: Text(busy ? 'جارٍ الحفظ' : 'حفظ السؤال')),
+        ],
+      )),
     );
     if (mounted) setState(reload);
   }
