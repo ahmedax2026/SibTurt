@@ -16,11 +16,22 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  DashboardViewModel? _boundViewModel;
+
   @override
-  void initState() {
-    super.initState();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final DashboardViewModel viewModel = context.watch<DashboardViewModel>();
+    if (identical(_boundViewModel, viewModel)) return;
+    _boundViewModel = viewModel;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _load();
+      if (!mounted ||
+          !identical(_boundViewModel, viewModel) ||
+          viewModel.loadedOnce ||
+          viewModel.isBusy) {
+        return;
+      }
+      unawaited(_load());
     });
   }
 

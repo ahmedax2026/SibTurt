@@ -16,10 +16,23 @@ class ProgressScreen extends StatefulWidget {
 }
 
 class _ProgressScreenState extends State<ProgressScreen> {
+  ProgressViewModel? _boundViewModel;
+
   @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final ProgressViewModel viewModel = context.watch<ProgressViewModel>();
+    if (identical(_boundViewModel, viewModel)) return;
+    _boundViewModel = viewModel;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted ||
+          !identical(_boundViewModel, viewModel) ||
+          viewModel.loadedOnce ||
+          viewModel.isBusy) {
+        return;
+      }
+      unawaited(_load());
+    });
   }
 
   Future<void> _load({bool refresh = false}) async {

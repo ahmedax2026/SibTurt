@@ -16,11 +16,23 @@ class CoursesScreen extends StatefulWidget {
 
 class _CoursesScreenState extends State<CoursesScreen> {
   final TextEditingController _search = TextEditingController();
+  CoursesViewModel? _boundViewModel;
 
   @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final CoursesViewModel viewModel = context.watch<CoursesViewModel>();
+    if (identical(_boundViewModel, viewModel)) return;
+    _boundViewModel = viewModel;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted ||
+          !identical(_boundViewModel, viewModel) ||
+          viewModel.loadedOnce ||
+          viewModel.isBusy) {
+        return;
+      }
+      unawaited(_load());
+    });
   }
 
   @override

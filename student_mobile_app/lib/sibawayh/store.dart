@@ -418,6 +418,7 @@ class SibStore extends ChangeNotifier {
         .limit(200)
         .get(const GetOptions(source: Source.server));
     return snap.docs
+        .where((d) => d.id != uid)
         .map((d) => <String, dynamic>{...d.data(), 'id': d.id})
         .where(
           (r) =>
