@@ -29,7 +29,14 @@ class _LessonPlayerState extends State<LessonPlayer>
   VideoPlayerController? video;
   YoutubePlayerController? youtube;
   WebViewController? drive;
-  Timer? checkTimer, saveTimer;
+  Timer? checkTimer, saveTimer, controlsTimer;
+  bool controlsVisible = true;
+  void scheduleHide() {
+    controlsTimer?.cancel();
+    controlsTimer = Timer(const Duration(seconds: 4), () {
+      if (mounted && video?.value.isPlaying == true) setState(() => controlsVisible = false);
+    });
+  }
   StreamSubscription<DocumentSnapshot<RowData>>? subscription;
   bool opening = false,
       loaded = false,
@@ -260,6 +267,7 @@ class _LessonPlayerState extends State<LessonPlayer>
     WidgetsBinding.instance.removeObserver(this);
     checkTimer?.cancel();
     saveTimer?.cancel();
+    controlsTimer?.cancel();
     subscription?.cancel();
     video?.removeListener(onTick);
     video?.dispose();
@@ -313,80 +321,55 @@ class _LessonPlayerState extends State<LessonPlayer>
       );
     final c = video;
     if (c == null) return const SizedBox.shrink();
-    return Stack(
-      alignment: Alignment.center,
-      children: [
-        AspectRatio(aspectRatio: c.value.aspectRatio, child: VideoPlayer(c)),
-        Positioned.fill(
-          child: IgnorePointer(
-            child: AnimatedAlign(
+    return AspectRatio(
+      aspectRatio: 16 / 9,
+      child: LayoutBuilder(builder: (context, constraints) {
+        final compact = constraints.maxWidth < 420;
+        final duration = c.value.duration.inMilliseconds;
+        final position = c.value.position.inMilliseconds.clamp(0, max(0, duration)).toInt();
+        String time(int ms) {
+          final seconds = ms ~/ 1000;
+          return '${seconds ~/ 60}:${(seconds % 60).toString().padLeft(2, '0')}';
+        }
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            ColoredBox(color: Colors.black, child: Center(child: AspectRatio(aspectRatio: c.value.aspectRatio, child: VideoPlayer(c)))),
+            IgnorePointer(child: AnimatedAlign(
               duration: const Duration(milliseconds: 500),
               alignment: markAlignment,
-              child: Container(
-                color: Colors.black38,
-                padding: const EdgeInsets.all(5),
-                child: Text(
-                  mark,
-                  style: const TextStyle(color: Colors.white70, fontSize: 10),
-                ),
-              ),
+              child: Text(mark, style: const TextStyle(color: Colors.white54, fontSize: 9)),
+            )),
+            GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onTap: () { setState(() => controlsVisible = !controlsVisible); if (controlsVisible) scheduleHide(); },
             ),
-          ),
-        ),
-        Positioned(
-          bottom: 0,
-          left: 0,
-          right: 0,
-          child: ColoredBox(
-            color: Colors.black54,
-            child: Row(
-              children: [
-                IconButton(
-                  onPressed: () => c.value.isPlaying ? c.pause() : c.play(),
-                  icon: Icon(
-                    c.value.isPlaying ? Icons.pause : Icons.play_arrow,
-                    color: Colors.white,
-                  ),
-                ),
-                IconButton(
-                  tooltip: 'رجوع 10 ثوانٍ',
-                  onPressed: () => c.seekTo(Duration(milliseconds: max(0, c.value.position.inMilliseconds - 10000))),
-                  icon: const Icon(Icons.replay_10, color: Colors.white),
-                ),
-                Expanded(
-                  child: Slider(
-                    value: c.value.position.inMilliseconds.toDouble().clamp(
-                      0,
-                      c.value.duration.inMilliseconds.toDouble(),
-                    ),
-                    max: max(1, c.value.duration.inMilliseconds.toDouble()),
-                    onChanged: (v) =>
-                        c.seekTo(Duration(milliseconds: v.toInt())),
-                  ),
-                ),
-                IconButton(
-                  tooltip: 'تقديم 10 ثوانٍ',
-                  onPressed: () => c.seekTo(Duration(milliseconds: min(c.value.duration.inMilliseconds, c.value.position.inMilliseconds + 10000))),
-                  icon: const Icon(Icons.forward_10, color: Colors.white),
-                ),
-                PopupMenuButton<double>(
-                  tooltip: 'سرعة التشغيل',
-                  onSelected: (speed) => c.setPlaybackSpeed(speed),
-                  itemBuilder: (_) => [for (final speed in [0.5, 0.75, 1.0, 1.25, 1.5, 2.0]) PopupMenuItem(value: speed, child: Text('${speed}x'))],
-                  child: Padding(padding: const EdgeInsets.all(8), child: Text('${c.value.playbackSpeed}x', style: const TextStyle(color: Colors.white))),
-                ),
-                IconButton(
-                  onPressed: toggleFull,
-                  icon: Icon(
-                    full ? Icons.fullscreen_exit : Icons.fullscreen,
-                    color: Colors.white,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
+            if (controlsVisible) ...[
+              Center(child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(tooltip: 'رجوع 10 ثوانٍ', color: Colors.white, iconSize: 30, onPressed: () { c.seekTo(Duration(milliseconds: max(0, position - 10000))); scheduleHide(); }, icon: const Icon(Icons.replay_10)),
+                  const SizedBox(width: 12),
+                  IconButton.filled(tooltip: 'تشغيل أو إيقاف', style: IconButton.styleFrom(backgroundColor: const Color(0xBB000000), foregroundColor: Colors.white), iconSize: 40, onPressed: () { c.value.isPlaying ? c.pause() : c.play(); scheduleHide(); }, icon: Icon(c.value.isPlaying ? Icons.pause : Icons.play_arrow)),
+                  const SizedBox(width: 12),
+                  IconButton(tooltip: 'تقديم 10 ثوانٍ', color: Colors.white, iconSize: 30, onPressed: () { c.seekTo(Duration(milliseconds: min(max(0, duration), position + 10000))); scheduleHide(); }, icon: const Icon(Icons.forward_10)),
+                ],
+              )),
+              Positioned(bottom: 0, left: 0, right: 0, child: Container(
+                decoration: const BoxDecoration(gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Colors.transparent, Colors.black87])),
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Row(children: [
+                  Text(time(position), style: TextStyle(color: Colors.white, fontSize: compact ? 10 : 12)),
+                  Expanded(child: SliderTheme(data: SliderTheme.of(context).copyWith(trackHeight: 2, thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5), activeTrackColor: const Color(0xFFE8C581), thumbColor: const Color(0xFFE8C581)), child: Slider(value: position.toDouble(), max: max(1, duration).toDouble(), onChanged: (v) { c.seekTo(Duration(milliseconds: v.toInt())); scheduleHide(); }))),
+                  Text(time(duration), style: TextStyle(color: Colors.white, fontSize: compact ? 10 : 12)),
+                  PopupMenuButton<double>(tooltip: 'سرعة التشغيل', onSelected: (speed) { c.setPlaybackSpeed(speed); scheduleHide(); }, itemBuilder: (_) => [for (final speed in [0.5, 0.75, 1.0, 1.25, 1.5, 2.0]) PopupMenuItem(value: speed, child: Text('${speed}x'))], child: Padding(padding: const EdgeInsets.all(8), child: Text('${c.value.playbackSpeed}x', style: const TextStyle(color: Colors.white)))),
+                  IconButton(color: Colors.white, tooltip: 'ملء الشاشة', onPressed: toggleFull, icon: Icon(full ? Icons.fullscreen_exit : Icons.fullscreen)),
+                ]),
+              )),
+            ],
+          ],
+        );
+      }),
     );
   }
 
