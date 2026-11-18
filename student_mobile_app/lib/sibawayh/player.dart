@@ -7,7 +7,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:video_player/video_player.dart';
-import 'package:youtube_player_iframe/youtube_player_iframe.dart';
+import 'package:youtube_player_embed/youtube_player_embed.dart' as embed;
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -27,7 +27,9 @@ class _LessonPlayerState extends State<LessonPlayer>
     with WidgetsBindingObserver {
   static const channel = MethodChannel('sibawayh/security');
   VideoPlayerController? video;
-  YoutubePlayerController? youtube;
+  embed.VideoController? youtube;
+  String? youtubeId;
+  double youtubePosition = 0;
   WebViewController? drive;
   Timer? checkTimer, saveTimer, controlsTimer;
   bool controlsVisible = true;
@@ -120,6 +122,7 @@ class _LessonPlayerState extends State<LessonPlayer>
     if (!mounted) return;
     video?.pause();
     youtube?.pauseVideo();
+    if (youtubeId != null) { youtube = null; youtubeId = null; loaded = false; }
     if (drive != null) {
       drive!.loadRequest(Uri.parse('about:blank'));
       drive = null;
@@ -170,12 +173,14 @@ class _LessonPlayerState extends State<LessonPlayer>
       provider = text(source, 'provider');
       final url = text(source, 'url');
       if (provider == 'youtube') {
-        youtube = YoutubePlayerController(
-          params: const YoutubePlayerParams(
-            showControls: true,
-            showFullscreenButton: false,
-          ),
-        )..loadVideo(url);
+        final uri = Uri.tryParse(url);
+        final id = uri?.queryParameters['v'] ??
+            (uri != null && uri.pathSegments.isNotEmpty ? uri.pathSegments.last : url);
+        if (!RegExp(r'^[A-Za-z0-9_-]{11}$').hasMatch(id)) {
+          throw StateError('معرف الفيديو غير صحيح');
+        }
+        youtubeId = id;
+        youtubePosition = start;
       } else if (provider == 'drive') {
         final match = RegExp(r'/file/d/([A-Za-z0-9_-]+)').firstMatch(url);
         final id = match?.group(1) ?? Uri.tryParse(url)?.queryParameters['id'];
@@ -233,7 +238,7 @@ class _LessonPlayerState extends State<LessonPlayer>
     try {
       final position =
           video?.value.position.inSeconds.toDouble() ??
-          (youtube == null ? 0 : await youtube!.currentTime);
+          youtubePosition;
       await widget.store.saveProgress(
         widget.lesson['id'],
         widget.lesson['course_id'],
@@ -271,7 +276,7 @@ class _LessonPlayerState extends State<LessonPlayer>
     subscription?.cancel();
     video?.removeListener(onTick);
     video?.dispose();
-    youtube?.close();
+    youtube?.pauseVideo();
     elapsed.stop();
     SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
     super.dispose();
@@ -312,8 +317,20 @@ class _LessonPlayerState extends State<LessonPlayer>
         ),
       );
     if (!loaded) return const Center(child: CircularProgressIndicator());
-    if (youtube != null)
-      return YoutubePlayer(controller: youtube!, aspectRatio: 16 / 9);
+    if (youtubeId != null)
+      return embed.YoutubePlayerEmbed(
+        key: ValueKey(youtubeId),
+        videoId: youtubeId!,
+        autoPlay: false,
+        enabledShareButton: false,
+        hidenChannelImage: true,
+        aspectRatio: 16 / 9,
+        callBackVideoController: (controller) {
+          if (!mounted || reason.isNotEmpty) { controller.pauseVideo(); return; }
+          youtube = controller;
+        },
+        onVideoTimeUpdate: (position) => youtubePosition = position,
+      );
     if (drive != null)
       return SizedBox(
         height: full ? MediaQuery.sizeOf(context).height : MediaQuery.sizeOf(context).width * 9 / 16,
@@ -402,7 +419,7 @@ class _LessonPlayerState extends State<LessonPlayer>
               Wrap(
                 spacing: 10,
                 children: [
-                  if (youtube != null || drive != null)
+                  if (youtubeId != null || drive != null)
                     OutlinedButton.icon(
                       onPressed: toggleFull,
                       icon: const Icon(Icons.fullscreen),
@@ -482,7 +499,7 @@ class _LessonPlayerState extends State<LessonPlayer>
                   padding: EdgeInsets.symmetric(vertical: 12),
                   child: Text('لا توجد ملزمة PDF لهذه المحاضرة حاليًا.'),
                 ),
-              if (youtube != null || drive != null)
+              if (youtubeId != null || drive != null)
                 const Padding(
                   padding: EdgeInsets.only(top: 18),
                   child: Text(
