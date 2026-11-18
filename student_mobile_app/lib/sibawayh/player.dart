@@ -173,8 +173,34 @@ class _LessonPlayerState extends State<LessonPlayer>
       } catch (_) {
         lessonQuizzes = [];
       }
-      final start = ((resume.data()?['seconds'] as num?) ?? 0).toDouble();
+      var start = ((resume.data()?['seconds'] as num?) ?? 0).toDouble();
       provider = text(source, 'provider');
+      if (!mounted) return;
+      if (start >= 5 && provider != 'drive') {
+        final saved = Duration(seconds: start.toInt());
+        final stamp = '${saved.inHours.toString().padLeft(2, '0')}:${(saved.inMinutes % 60).toString().padLeft(2, '0')}:${(saved.inSeconds % 60).toString().padLeft(2, '0')}';
+        final resumePlayback = await showDialog<bool>(
+          context: context,
+          barrierDismissible: false,
+          builder: (ctx) => AlertDialog(
+            icon: const Icon(Icons.play_circle_outline, color: Color(0xFFC6A15B), size: 48),
+            title: const Text('أهلًا بعودتك'),
+            content: Text('سبق لك مشاهدة هذا الدرس. آخر موضع: $stamp'),
+            actions: [
+              OutlinedButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('البدء من الأول'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('استكمال المشاهدة'),
+              ),
+            ],
+          ),
+        );
+        if (!mounted) return;
+        if (resumePlayback == false) start = 0;
+      }
       final url = text(source, 'url');
       if (provider == 'youtube') {
         final uri = Uri.tryParse(url);
