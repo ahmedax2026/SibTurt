@@ -44,3 +44,23 @@ Firebase project config وحساب المالك ورقم WhatsApp غير متو�
 - Dart format نجح، وحلّ الحزم نجح. `flutter analyze` كشف خطأ API واحدًا في file_picker 13 (استخدام platform القديم)، عُدّل إلى pickFile/readAsBytes وفق API المشروع. لا يُعد البناء ناجحًا حتى يمر الاختبار التالي.
 - Firestore Emulator: نجح 8 من 9 اختبارات، وفشل اختبار query لقائمة الكورسات. عُدلت قاعدة courses لاستخدام resource.data مباشرة حتى تعمل شروط قائمة صف الطالب مع بقاء الروابط الخاصة محمية.
 - جرى حفظ pubspec.lock من الحزم التي حلها البناء، وتنسيق ملفات Dart من artifact. أُضيف README خاص بسيبويه ودليل إعداد Firebase. لا يوجد مشروع Firebase فعلي مربوط بعد.
+
+## نتيجة البناء الناجح — 18 نوفمبر 2026
+
+- commit النهائي الذي نجح عليه البناء: `e92fa38a593cae1f5e3bbd9bb730b86332312bf8`.
+- GitHub Actions run: https://github.com/ahmedax2026/SibTurt/actions/runs/44248150538 — النتيجة `success`.
+- نجحت اختبارات قواعد Firestore بالكامل، ونجح `dart format` و`flutter analyze` وكل مجموعة `flutter test` الأصلية والجديدة.
+- أُصلحت مشكلة بقاء شاشات Home/Courses/Progress على ViewModel المؤسسة القديمة عند تبديل المؤسسة، بدون تعطيل اختبارات TutorLoom الأصلية.
+- رُفع Android Gradle Plugin من 9.1.0 إلى 9.1.1، وهو الحد الأدنى المطلوب من Flutter الحالي، ثم نجح `flutter build apk --debug`.
+- artifact: `Sibawayh-Flutter-Trial`، رقم `14401839998`، ويحتوي `app-debug.apk` بحجم 174,488,817 بايت.
+- SHA-256 للـAPK: `88a8fc3d66616abf2f590c59736a08bde128e37efacd62f7266bf992cdda9ba6`.
+- هذا APK **معاينة Flutter ناجحة البناء** وليس إصدار تشغيل حقيقي للحسابات، لأن متغيرات مشروع Firebase ورقم WhatsApp وUID المالك لم تُضف بعد.
+- أضيف قفل Portrait، واستبعاد UID المالك من قائمة الطلبة، وبقيت صلاحية المالك مستمدة فقط من `roles/{uid}.owner` التي تُنشأ خارجيًا.
+
+## المطلوب للاستكمال الحي
+
+1. إنشاء/اختيار Firebase project وتسجيل Android app بالمعرّف `com.sibawayh.academy`.
+2. إضافة Repository Variables الأربع: `FIREBASE_API_KEY` و`FIREBASE_APP_ID` و`FIREBASE_PROJECT_ID` و`FIREBASE_MESSAGING_SENDER_ID`.
+3. تحديد رقم WhatsApp بصيغة دولية، ثم إنشاء حساب المالك ومنح UID الخاص به `roles/{uid}.owner = true` خارج التطبيق.
+4. نشر `firebase/firestore.rules` و`firebase/firestore.indexes.json`، ثم بناء APK مربوط بالمشروع.
+5. اختبار فعلي على هاتف Android للسماعات السلكية/البلوتوث وVPN/Proxy والخلفية والملء الكامل ومصادر فيديو حقيقية قبل اعتبار الحماية مسلّمة.
