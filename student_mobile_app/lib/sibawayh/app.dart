@@ -169,7 +169,9 @@ class SibawayhApp extends StatelessWidget {
           ),
         ),
       ),
-      home: store.profile?['blocked'] == true
+      home: store.owner && store.uid != null
+          ? TeacherModeScreen(store: store)
+          : store.profile?['blocked'] == true
           ? BlockedScreen(store: store)
           : store.needsProfile
           ? CompleteProfileScreen(store: store)
@@ -177,6 +179,40 @@ class SibawayhApp extends StatelessWidget {
           ? StudentShell(store: store)
           : AuthScreen(store: store),
     ),
+  );
+}
+
+class TeacherModeScreen extends StatelessWidget {
+  const TeacherModeScreen({super.key, required this.store});
+  final SibStore store;
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: const Text('حساب المدرس'), actions: [
+      IconButton(onPressed: store.logout, icon: const Icon(Icons.logout)),
+    ]),
+    body: ListView(padding: const EdgeInsets.all(24), children: [
+      FilledButton.icon(
+        icon: const Icon(Icons.admin_panel_settings),
+        label: const Text('لوحة الإدارة — جميع الصفوف'),
+        onPressed: () => Navigator.push(context, MaterialPageRoute<void>(
+          builder: (_) => AdminDashboard(store: store),
+        )),
+      ),
+      const SizedBox(height: 24),
+      const Text('معاينة واجهة الطالب حسب الصف'),
+      for (final grade in store.grades)
+        ListTile(
+          title: Text(grade),
+          trailing: const Icon(Icons.visibility_outlined),
+          onTap: () async {
+            store.previewGrade = grade;
+            await Navigator.push(context, MaterialPageRoute<void>(
+              builder: (_) => StudentShell(store: store),
+            ));
+            store.previewGrade = null;
+          },
+        ),
+    ]),
   );
 }
 
@@ -670,7 +706,7 @@ class _StudentShellState extends State<StudentShell> {
                           'أهلًا، ${text(s.profile ?? {}, 'name').split(' ').first}',
                           style: Theme.of(context).textTheme.headlineMedium,
                         ),
-                        Text(text(s.profile ?? {}, 'grade')),
+                        Text(s.owner ? (s.previewGrade ?? 'مدرس') : text(s.profile ?? {}, 'grade')),
                         const SizedBox(height: 20),
                         ClipRRect(
                           borderRadius: BorderRadius.circular(22),
