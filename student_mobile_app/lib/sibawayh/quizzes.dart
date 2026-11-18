@@ -349,13 +349,15 @@ class _AdminQuizzesState extends State<AdminQuizzes> {
   }
 
   void reload() {
-    rows = widget.store.list('quizzes').then(
-      (items) => widget.lesson == null
-          ? items
-          : items
-                .where((q) => q['lesson_id'] == widget.lesson!['id'])
-                .toList(),
-    );
+    rows = widget.store
+        .list('quizzes')
+        .then(
+          (items) => widget.lesson == null
+              ? items
+              : items
+                    .where((q) => q['lesson_id'] == widget.lesson!['id'])
+                    .toList(),
+        );
   }
 
   Future<void> edit([RowData? quiz]) async {
@@ -391,11 +393,7 @@ class _AdminQuizzesState extends State<AdminQuizzes> {
         options: {'quiz': 'اختبار', 'homework': 'واجب'},
       ),
       const EditField('description', 'التعليمات', multiline: true),
-      const EditField(
-        'time_minutes',
-        'الدقائق، صفر بدون توقيت',
-        number: true,
-      ),
+      const EditField('time_minutes', 'الدقائق، صفر بدون توقيت', number: true),
       const EditField('position', 'الترتيب', number: true),
       const EditField('published', 'منشور للطلبة', toggle: true),
       const EditField(
@@ -410,7 +408,8 @@ class _AdminQuizzesState extends State<AdminQuizzes> {
       fields,
       {
         ...?quiz,
-        'course_id': fixedLesson?['course_id'] ??
+        'course_id':
+            fixedLesson?['course_id'] ??
             quiz?['course_id'] ??
             courses.first['id'],
         'lesson_id': fixedLesson?['id'] ?? quiz?['lesson_id'] ?? '',

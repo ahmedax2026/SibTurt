@@ -1170,10 +1170,8 @@ class _AdminLessonsState extends State<AdminLessons> {
                         tooltip: 'اختبارات المحاضرة',
                         onPressed: () => Navigator.of(context).push(
                           MaterialPageRoute<void>(
-                            builder: (_) => AdminQuizzes(
-                              store: widget.store,
-                              lesson: l,
-                            ),
+                            builder: (_) =>
+                                AdminQuizzes(store: widget.store, lesson: l),
                           ),
                         ),
                         icon: const Icon(Icons.quiz_outlined),
@@ -1186,9 +1184,7 @@ class _AdminLessonsState extends State<AdminLessons> {
                           try {
                             await widget.store.db
                                 .doc('lessons/${l['id']}')
-                                .update({
-                                  'published': l['published'] != true,
-                                });
+                                .update({'published': l['published'] != true});
                             await widget.store.audit(
                               'lesson_visibility',
                               l['id'],

@@ -198,10 +198,7 @@ class SibStore extends ChangeNotifier {
   void track(String name, [Map<String, Object>? parameters]) {
     if (!ready) return;
     unawaited(
-      FirebaseAnalytics.instance.logEvent(
-        name: name,
-        parameters: parameters,
-      ),
+      FirebaseAnalytics.instance.logEvent(name: name, parameters: parameters),
     );
   }
 

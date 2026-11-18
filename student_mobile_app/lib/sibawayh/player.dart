@@ -457,10 +457,8 @@ class _LessonPlayerState extends State<LessonPlayer>
                       trailing: const Icon(Icons.chevron_left),
                       onTap: () => Navigator.of(context).push(
                         MaterialPageRoute<void>(
-                          builder: (_) => TakeQuiz(
-                            store: widget.store,
-                            quiz: quiz,
-                          ),
+                          builder: (_) =>
+                              TakeQuiz(store: widget.store, quiz: quiz),
                         ),
                       ),
                     ),

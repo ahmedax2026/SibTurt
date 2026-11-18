@@ -90,4 +90,5 @@ Firebase project config وحساب المالك ورقم WhatsApp غير متو�
 - السوبر أدمن يستطيع من قائمة محاضرات الكورس فتح «اختبارات المحاضرة» وإنشاء اختبار/واجب مرتبط مباشرة بالمحاضرة، أو إبقاء الاختبار عامًا للكورس من شاشة الاختبارات العامة.
 - صفحة الدرس تعرض الفيديو ثم الاختبارات المرتبطة مع النوع والوقت، ثم ملف PDF الاختياري. عند عدم وجود اختبار أو PDF تظهر رسالة واضحة بدل زر فارغ.
 - رابط PDF ما زال رابط HTTPS خارجيًا اختياريًا ولا يستخدم Firebase Storage المدفوع. فتح PDF وفتح/تسليم الاختبار يسجل Analytics بدون اسم أو هاتف الطالب.
-- هذه الدفعة تحتاج `dart format` و`flutter analyze` والاختبارات وبناء APK قبل اعتبارها متحققة.
+- تحققت الدفعة بنجاح في GitHub Actions run https://github.com/ahmedax2026/SibTurt/actions/runs/44267457358: قواعد Firebase، `dart format`، `flutter analyze`، كل اختبارات Flutter، وبناء APK.
+- artifact: `Sibawayh-Flutter-Trial` رقم `14410289899`. SHA-256 للـAPK: `752bbe1fa7e4fc21d175f5f7f604363e55ed425c0d854d47f7b6db0bae1a748b`.
