@@ -66,6 +66,7 @@ class SibStore extends ChangeNotifier {
       : 'ST-${uid!.substring(0, min(uid!.length, 12)).toUpperCase()}';
   FirebaseFirestore get db =>
       _db ?? (throw StateError('إعداد Firebase لم يكتمل بعد'));
+  bool get needsProfile => ready && uid != null && profile == null;
   bool get signedIn =>
       profile != null && uid != null && (owner || deviceVerified);
 
@@ -123,7 +124,7 @@ class SibStore extends ChangeNotifier {
         unawaited(refreshProfile());
       });
       await refreshProfile();
-      if (uid != null) {
+      if (uid != null && profile != null) {
         try {
           await verifyDeviceBinding();
         } catch (e) {
@@ -290,14 +291,22 @@ class SibStore extends ChangeNotifier {
         'device_bound_at': FieldValue.serverTimestamp(),
         'created_at': FieldValue.serverTimestamp(),
       });
-      _deviceId = text(identity, 'id');
-      deviceVerified = true;
-      await refreshProfile();
-      unawaited(FirebaseAnalytics.instance.logSignUp(signUpMethod: 'email'));
     } catch (e) {
+      // Do not leave an Authentication account without its Firestore profile.
+      // The newly-created session is recent enough to delete safely here.
+      try {
+        await user.delete();
+      } catch (_) {
+        // A completion screen will recover the account if deletion is refused.
+      }
       await _auth!.signOut();
       rethrow;
     }
+    _deviceId = text(identity, 'id');
+    deviceVerified = true;
+    setupError = null;
+    await refreshProfile();
+    unawaited(FirebaseAnalytics.instance.logSignUp(signUpMethod: 'email'));
   }
 
   Future<void> login(String email, String password) async {
@@ -308,7 +317,15 @@ class SibStore extends ChangeNotifier {
         password: password,
       );
       await refreshProfile();
+      if (profile == null) {
+        // Keep the authenticated session so the student can repair an orphaned
+        // Authentication account by creating the missing Firestore profile.
+        setupError = null;
+        notifyListeners();
+        return;
+      }
       await verifyDeviceBinding();
+      setupError = null;
       unawaited(FirebaseAnalytics.instance.logLogin(loginMethod: 'email'));
     } catch (_) {
       await _auth?.signOut();
@@ -317,6 +334,36 @@ class SibStore extends ChangeNotifier {
       deviceVerified = false;
       rethrow;
     }
+  }
+
+  Future<void> completeProfile(String name, String phone, String grade) async {
+    requireReady();
+    final current = uid;
+    final user = _auth?.currentUser;
+    final email = user?.email?.trim().toLowerCase() ?? '';
+    if (current == null || user == null || email.isEmpty) {
+      throw StateError('سجّل الدخول أولًا');
+    }
+    if (!grades.contains(grade)) throw StateError('اختر الصف الدراسي');
+    final identity = await _deviceIdentity();
+    await db.doc('users/$current').set({
+      'name': name.trim(),
+      'phone': phone.trim(),
+      'grade': grade,
+      'email': email,
+      'blocked': false,
+      'device_id': identity['id'],
+      'device_label': identity['label'],
+      'device_bound_at': FieldValue.serverTimestamp(),
+      'created_at': FieldValue.serverTimestamp(),
+    });
+    if (uid != current) return;
+    _deviceId = text(identity, 'id');
+    deviceVerified = true;
+    setupError = null;
+    await refreshProfile();
+    await verifyDeviceBinding();
+    unawaited(FirebaseAnalytics.instance.logSignUp(signUpMethod: 'recovery'));
   }
 
   Future<void> logout() async {

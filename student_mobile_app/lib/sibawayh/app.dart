@@ -171,6 +171,8 @@ class SibawayhApp extends StatelessWidget {
       ),
       home: store.profile?['blocked'] == true
           ? BlockedScreen(store: store)
+          : store.needsProfile
+          ? CompleteProfileScreen(store: store)
           : store.signedIn
           ? StudentShell(store: store)
           : AuthScreen(store: store),
@@ -207,6 +209,140 @@ class BlockedScreen extends StatelessWidget {
       ),
     ),
   );
+}
+
+class CompleteProfileScreen extends StatefulWidget {
+  const CompleteProfileScreen({super.key, required this.store});
+  final SibStore store;
+  @override
+  State<CompleteProfileScreen> createState() => _CompleteProfileScreenState();
+}
+
+class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
+  final formKey = GlobalKey<FormState>();
+  final name = TextEditingController(), phone = TextEditingController();
+  String? grade;
+  bool busy = false;
+
+  @override
+  void dispose() {
+    name.dispose();
+    phone.dispose();
+    super.dispose();
+  }
+
+  Future<void> submit() async {
+    if (!formKey.currentState!.validate()) return;
+    setState(() => busy = true);
+    try {
+      await widget.store.completeProfile(
+        name.text,
+        phone.text,
+        grade ?? widget.store.grades.first,
+      );
+    } catch (e) {
+      if (mounted) message(context, e);
+    } finally {
+      if (mounted) setState(() => busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final store = widget.store;
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('استكمال الحساب'),
+        actions: [
+          TextButton(
+            onPressed: busy ? null : store.logout,
+            child: const Text(
+              'خروج',
+              style: TextStyle(color: Color(0xFFE8C581)),
+            ),
+          ),
+        ],
+      ),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 520),
+              child: Form(
+                key: formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Icon(
+                      Icons.manage_accounts_outlined,
+                      size: 72,
+                      color: Color(0xFF9C712E),
+                    ),
+                    const SizedBox(height: 18),
+                    Text(
+                      'حسابك موجود',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.headlineSmall,
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'نحتاج استكمال بيانات الطالب مرة واحدة لفتح المنصة.',
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 28),
+                    TextFormField(
+                      controller: name,
+                      decoration: const InputDecoration(
+                        labelText: 'الاسم بالكامل',
+                      ),
+                      validator: (value) => (value ?? '').trim().length < 3
+                          ? 'اكتب الاسم بالكامل'
+                          : null,
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: phone,
+                      keyboardType: TextInputType.phone,
+                      decoration: const InputDecoration(
+                        labelText: 'رقم الموبايل',
+                      ),
+                      validator: (value) => RegExp(
+                        r'^\+?[0-9]{8,15}$',
+                      ).hasMatch((value ?? '').trim())
+                          ? null
+                          : 'رقم الهاتف بالأرقام الإنجليزية',
+                    ),
+                    const SizedBox(height: 16),
+                    DropdownButtonFormField<String>(
+                      initialValue: grade ?? store.grades.first,
+                      decoration: const InputDecoration(
+                        labelText: 'الصف الدراسي',
+                      ),
+                      items: store.grades
+                          .map(
+                            (value) => DropdownMenuItem(
+                              value: value,
+                              child: Text(value),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: busy ? null : (value) => grade = value,
+                    ),
+                    const SizedBox(height: 22),
+                    FilledButton(
+                      onPressed: busy ? null : submit,
+                      child: Text(busy ? 'جارٍ الحفظ…' : 'حفظ ودخول'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class AuthScreen extends StatefulWidget {

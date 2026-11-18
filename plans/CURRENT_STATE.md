@@ -92,3 +92,10 @@ Firebase project config وحساب المالك ورقم WhatsApp غير متو�
 - رابط PDF ما زال رابط HTTPS خارجيًا اختياريًا ولا يستخدم Firebase Storage المدفوع. فتح PDF وفتح/تسليم الاختبار يسجل Analytics بدون اسم أو هاتف الطالب.
 - تحققت الدفعة بنجاح في GitHub Actions run https://github.com/ahmedax2026/SibTurt/actions/runs/44267457358: قواعد Firebase، `dart format`، `flutter analyze`، كل اختبارات Flutter، وبناء APK.
 - artifact: `Sibawayh-Flutter-Trial` رقم `14410289899`. SHA-256 للـAPK: `752bbe1fa7e4fc21d175f5f7f604363e55ed425c0d854d47f7b6db0bae1a748b`.
+
+## استعادة الحساب الناقص — دفعة جارية
+
+- عُولجت حالة وجود حساب Firebase Authentication من دون وثيقة `users/{uid}`: بعد الدخول تظهر شاشة استكمال الاسم والهاتف والصف بدل رسالة «بيانات الحساب غير مكتملة».
+- عند إنشاء حساب جديد، إذا فشل حفظ وثيقة Firestore يحاول التطبيق حذف حساب Authentication الجديد فورًا، لعدم ترك حساب ناقص مرة أخرى.
+- التحقق من الجهاز يبدأ بعد وجود ملف الطالب، ثم يظل قفل الحساب على جهاز واحد فعالًا.
+- الحالة: الكود مكتوب محليًا، ويجب تنسيقه وتحليله وبناء APK في GitHub Actions قبل اعتبار الدفعة ناجحة.
