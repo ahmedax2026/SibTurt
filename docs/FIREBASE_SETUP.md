@@ -10,14 +10,14 @@
 
 ## تمرير إعدادات التطبيق
 
-من إعدادات تطبيق Android في Firebase استخرج قيم FirebaseOptions (يمكن توليدها أيضًا عبر FlutterFire CLI). أضف القيم العامة التالية في GitHub → Settings → Secrets and variables → Actions → Variables:
+تم تسجيل تطبيق Android بالمعرّف `com.sibawayh.academy` ووضع `google-services.json` في مسار التطبيق، مع Google Services Gradle plugin. يقرأ Android هذه الإعدادات افتراضيًا. ويمكن بدلًا من ذلك تمرير القيم العامة التالية في GitHub → Settings → Secrets and variables → Actions → Variables عند الحاجة لبناء مخصص:
 
 - `FIREBASE_API_KEY`
 - `FIREBASE_APP_ID` — Firebase Android app ID، وليس اسم الحزمة فقط.
 - `FIREBASE_PROJECT_ID`
 - `FIREBASE_MESSAGING_SENDER_ID`
 
-ثم أعد تشغيل workflow `Sibawayh Flutter and Firebase`. الـworkflow يمررها بـ`--dart-define`. تهيئة Firebase صريحة في Dart، ولا تشترط هذه النسخة وضع service account أو ملف Google Services سري داخل المشروع. قيّد API keys حسب إعدادات المشروع ولا تعتبرها بديلًا عن Security Rules.
+ثم أعد تشغيل workflow `Sibawayh Flutter and Firebase`. الـworkflow يمررها بـ`--dart-define` إن وُجدت، وإلا يستخدم إعداد Android الأصلي. ملف Firebase client يحتوي معرفات عامة وليس Admin SDK؛ لا تضع service account داخل المشروع. قيّد API keys حسب إعدادات المشروع ولا تعتبرها بديلًا عن Security Rules.
 
 ## ربط الحساب بجهاز واحد
 

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "145963671734",
+    "project_id": "sibawayh-240e8",
+    "storage_bucket": "sibawayh-240e8.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:145963671734:android:92901444cf42eebeadc617",
+        "android_client_info": {
+          "package_name": "com.sibawayh.academy"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDle9tfGPJ6VLU3JIbO5ifAKAzv5AtvXBg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

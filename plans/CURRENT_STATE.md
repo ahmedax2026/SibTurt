@@ -74,3 +74,11 @@ Firebase project config وحساب المالك ورقم WhatsApp غير متو�
 - قواعد Firestore تسمح للطالب بربط حقل الجهاز مرة واحدة فقط؛ إعادة الضبط للمالك. نجحت 11/11 اختبارات Emulator، ومنها منع استبدال البصمة والسماح بعد فك المالك لها.
 - نجح `dart format` و`flutter analyze` وكل اختبارات Flutter وبناء APK في GitHub Actions run https://github.com/ahmedax2026/SibTurt/actions/runs/44250737284 (المحاولة الثانية؛ الأولى واجهت تنزيل Kotlin مؤقتًا). artifact الناجح `Sibawayh-Flutter-Trial` رقمه `14404012905`.
 - هذا لا يمنع عميلًا معدلًا أو جهاز root بصورة مطلقة؛ قبل الإطلاق يوصى بتفعيل App Check/Play Integrity بعد توقيع الإصدار.
+
+## ربط مشروع Firebase الحقيقي — 18 نوفمبر 2026
+
+- استُلم ملف Android client config وتحقق تطابق package `com.sibawayh.academy` مع مشروع `sibawayh-240e8` والتطبيق المسجل.
+- أضيف `google-services.json` في مكانه، وGoogle Services Gradle plugin 4.6.0 وفق إعداد Firebase الرسمي. تهيئة Dart تستخدم إعداد Android تلقائيًا، مع إبقاء `--dart-define` كخيار بديل للبناء.
+- أضيف Firebase Analytics الرسمي، مع جمع analytics وتسجيل signup/login وبدء الدرس وNavigator observer بدون إرسال الإيميل أو الهاتف كمعلمات.
+- لا توجد مفاتيح Admin SDK أو service account في المستودع. إعدادات client ليست بديلًا عن Rules أو App Check.
+- ما يزال يجب تأكيد تفعيل Authentication Email/Password وإنشاء Firestore في Console، ثم نشر قواعد `firebase/firestore.rules` وتجهيز وثيقتي المستخدم/الدور لحساب المالك.

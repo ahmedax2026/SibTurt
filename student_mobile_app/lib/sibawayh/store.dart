@@ -5,6 +5,7 @@ import 'dart:math';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -70,22 +71,24 @@ class SibStore extends ChangeNotifier {
     const appId = String.fromEnvironment('FIREBASE_APP_ID');
     const sender = String.fromEnvironment('FIREBASE_MESSAGING_SENDER_ID');
     const project = String.fromEnvironment('FIREBASE_PROJECT_ID');
-    if ([apiKey, appId, sender, project].any((v) => v.isEmpty)) {
-      setupError = 'نسخة معاينة: ربط مشروع Firebase لم يكتمل. التسجيل والتفعيل يحتاجان إعداد المشروع.';
-      return;
-    }
     try {
+      final hasDefines = [apiKey, appId, sender, project].every(
+        (value) => value.isNotEmpty,
+      );
       await Firebase.initializeApp(
-        options: const FirebaseOptions(
-          apiKey: apiKey,
-          appId: appId,
-          messagingSenderId: sender,
-          projectId: project,
-        ),
+        options: hasDefines
+            ? const FirebaseOptions(
+                apiKey: apiKey,
+                appId: appId,
+                messagingSenderId: sender,
+                projectId: project,
+              )
+            : null,
       );
       _db = FirebaseFirestore.instance;
       _db!.settings = const Settings(persistenceEnabled: false);
       _auth = FirebaseAuth.instance;
+      await FirebaseAnalytics.instance.setAnalyticsCollectionEnabled(true);
       ready = true;
       _brandSub = db
           .doc('settings/branding')
@@ -273,6 +276,9 @@ class SibStore extends ChangeNotifier {
       _deviceId = text(identity, 'id');
       deviceVerified = true;
       await refreshProfile();
+      unawaited(
+        FirebaseAnalytics.instance.logSignUp(signUpMethod: 'email'),
+      );
     } catch (e) {
       await _auth!.signOut();
       rethrow;
@@ -288,6 +294,7 @@ class SibStore extends ChangeNotifier {
       );
       await refreshProfile();
       await verifyDeviceBinding();
+      unawaited(FirebaseAnalytics.instance.logLogin(loginMethod: 'email'));
     } catch (_) {
       await _auth?.signOut();
       profile = null;
@@ -380,6 +387,12 @@ class SibStore extends ChangeNotifier {
       'created_at': FieldValue.serverTimestamp(),
     });
     final saved = await id.get(const GetOptions(source: Source.server));
+    unawaited(
+      FirebaseAnalytics.instance.logEvent(
+        name: 'lesson_start',
+        parameters: {'course_id': courseId, 'lesson_id': lessonId},
+      ),
+    );
     return {...saved.data()!, 'id': id.id};
   }
 
