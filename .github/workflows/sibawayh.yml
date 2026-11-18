@@ -35,6 +35,20 @@ jobs:
           if [ -f "$plugin" ]; then
             sed -i 's/proguard-android\.txt/proguard-android-optimize.txt/g' "$plugin"
           fi
+      - name: Fix YouTube embed client identity and initialization
+        run: |
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          p = Path(os.environ['PUB_CACHE']) / 'hosted/pub.dev/youtube_player_embed-1.6.4/lib/youtube_player_embed.dart'
+          s = p.read_text()
+          old = 'url: WebUri(url.replaceAll(" ", "")),'
+          assert old in s, 'Unexpected embed source'
+          s = s.replace(old, old + "\n            headers: {'Referer': 'https://com.sibawayh.academy/'},")
+          s = s.replace('&rel=0', '&rel=0\n    &widget_referrer=https%3A%2F%2Fcom.sibawayh.academy%2F')
+          s = s.replace('await embedController?.changeVideoTitle(\n              customVideoTitle: widget.customVideoTitle!,\n            );', 'if (widget.customVideoTitle != null) {\n              await embedController?.changeVideoTitle(customVideoTitle: widget.customVideoTitle!);\n            }')
+          p.write_text(s)
+          PY
       - run: dart format lib/sibawayh lib/main.dart test/sibawayh_test.dart
       - run: flutter analyze --no-fatal-infos
       - run: flutter test
