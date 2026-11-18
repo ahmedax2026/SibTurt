@@ -75,6 +75,11 @@ class SibStore extends ChangeNotifier {
       final hasDefines = [apiKey, appId, sender, project].every(
         (value) => value.isNotEmpty,
       );
+      if (!hasDefines && defaultTargetPlatform != TargetPlatform.android) {
+        setupError =
+            'نسخة معاينة: ربط مشروع Firebase متاح في تطبيق أندرويد.';
+        return;
+      }
       await Firebase.initializeApp(
         options: hasDefines
             ? const FirebaseOptions(
