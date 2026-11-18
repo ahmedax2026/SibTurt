@@ -46,10 +46,7 @@ class SibStore extends ChangeNotifier {
   static const _security = MethodChannel('sibawayh/security');
   FirebaseFirestore? _db;
   FirebaseAuth? _auth;
-  bool ready = false,
-      loading = false,
-      owner = false,
-      deviceVerified = false;
+  bool ready = false, loading = false, owner = false, deviceVerified = false;
   String? setupError;
   String? _deviceId;
   RowData? profile;
@@ -190,8 +187,7 @@ class SibStore extends ChangeNotifier {
       deviceVerified = true;
       return;
     }
-    deviceVerified = _deviceId != null &&
-        profile?['device_id'] == _deviceId;
+    deviceVerified = _deviceId != null && profile?['device_id'] == _deviceId;
   }
 
   Future<RowData> _deviceIdentity() async {
@@ -597,7 +593,17 @@ class SibStore extends ChangeNotifier {
 
   Future<void> saveQuestion(String? id, RowData data, RowData key) async {
     requireOwner();
-    if (id == null && (await db.collection('questions').where('quiz_id', isEqualTo: data['quiz_id']).limit(100).get()).docs.length >= 100) { throw StateError('الاختبار يدعم حتى ١٠٠ سؤال'); }
+    if (id == null &&
+        (await db
+                    .collection('questions')
+                    .where('quiz_id', isEqualTo: data['quiz_id'])
+                    .limit(100)
+                    .get())
+                .docs
+                .length >=
+            100) {
+      throw StateError('الاختبار يدعم حتى ١٠٠ سؤال');
+    }
     final ref = id == null
         ? db.collection('questions').doc()
         : db.doc('questions/$id');

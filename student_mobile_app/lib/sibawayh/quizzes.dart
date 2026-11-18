@@ -388,7 +388,8 @@ class _AdminQuizzesState extends State<AdminQuizzes> {
           },
       (d) async {
         requireText(d, 'title', 'العنوان');
-        if ((d['time_minutes'] as num) > 180 || d['time_minutes'] != (d['time_minutes'] as num).round())
+        if ((d['time_minutes'] as num) > 180 ||
+            d['time_minutes'] != (d['time_minutes'] as num).round())
           throw StateError('مدة الاختبار حتى ١٨٠ دقيقة');
         await widget.store.saveQuiz(quiz?['id'], d);
       },

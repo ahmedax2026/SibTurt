@@ -404,7 +404,8 @@ class _LessonPlayerState extends State<LessonPlayer>
                         ? () async {
                             setState(() => completed = true);
                             await save();
-                            if (context.mounted) message(context, 'تم حفظ إتمام الدرس');
+                            if (context.mounted)
+                              message(context, 'تم حفظ إتمام الدرس');
                           }
                         : null,
                     icon: const Icon(Icons.check_circle_outline),

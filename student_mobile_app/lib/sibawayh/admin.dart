@@ -299,9 +299,7 @@ class _AdminBrandState extends State<AdminBrand> {
 
   Future<void> pick(String key) async {
     try {
-      final result = await FilePicker.pickFile(
-        type: FileType.image,
-      );
+      final result = await FilePicker.pickFile(type: FileType.image);
       final bytes = result == null ? null : await result.readAsBytes();
       if (bytes == null) return;
       if (bytes.length > 15 * 1024 * 1024)
