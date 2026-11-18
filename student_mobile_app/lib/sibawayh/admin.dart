@@ -723,6 +723,17 @@ class _AdminStudentDetailState extends State<AdminStudentDetail> {
                 Text(text(user, 'email')),
                 Text(text(user, 'phone')),
                 Text(text(user, 'grade')),
+                const SizedBox(height: 8),
+                Text(
+                  text(user, 'device_id').isEmpty
+                      ? 'الجهاز: غير مرتبط'
+                      : 'الجهاز: ${text(user, 'device_label', 'Android')}',
+                ),
+                if (text(user, 'device_id').isNotEmpty)
+                  Text(
+                    'تاريخ الربط: ${dateLabel(user['device_bound_at'])}',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
                 SelectableText(user['id']),
                 const SizedBox(height: 12),
                 OutlinedButton(
@@ -756,6 +767,42 @@ class _AdminStudentDetailState extends State<AdminStudentDetail> {
                           () => widget.store.resetPassword(text(user, 'email')),
                         ),
                   child: const Text('إرسال استعادة كلمة المرور'),
+                ),
+                OutlinedButton.icon(
+                  icon: const Icon(Icons.phonelink_erase),
+                  onPressed: busy || text(user, 'device_id').isEmpty
+                      ? null
+                      : () async {
+                          final confirmed = await showDialog<bool>(
+                            context: context,
+                            builder: (ctx) => AlertDialog(
+                              title: const Text('فك ربط الجهاز؟'),
+                              content: const Text(
+                                'سيُمنع الجهاز الحالي، وسيُربط الحساب بأول جهاز يسجل الدخول بعد ذلك.',
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(ctx, false),
+                                  child: const Text('إلغاء'),
+                                ),
+                                FilledButton(
+                                  onPressed: () => Navigator.pop(ctx, true),
+                                  child: const Text('فك الربط'),
+                                ),
+                              ],
+                            ),
+                          );
+                          if (confirmed != true) return;
+                          await run(() async {
+                            await widget.store.resetDevice(user['id']);
+                            setState(() {
+                              user['device_id'] = null;
+                              user['device_label'] = null;
+                              user['device_bound_at'] = null;
+                            });
+                          });
+                        },
+                  label: const Text('فك ربط الجهاز'),
                 ),
                 TextButton(
                   onPressed: busy

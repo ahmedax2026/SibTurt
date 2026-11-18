@@ -7,6 +7,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 
 typedef RowData = Map<String, dynamic>;
 const initialGrades = ['الأول الثانوي', 'الثاني الثانوي', 'الثالث الثانوي'];
@@ -42,10 +43,15 @@ String text(RowData data, String key, [String fallback = '']) =>
     '${data[key] ?? fallback}';
 
 class SibStore extends ChangeNotifier {
+  static const _security = MethodChannel('sibawayh/security');
   FirebaseFirestore? _db;
   FirebaseAuth? _auth;
-  bool ready = false, loading = false, owner = false;
+  bool ready = false,
+      loading = false,
+      owner = false,
+      deviceVerified = false;
   String? setupError;
+  String? _deviceId;
   RowData? profile;
   RowData brand = {...initialBrand};
   List<String> grades = [...initialGrades], subjects = [...initialSubjects];
@@ -59,7 +65,8 @@ class SibStore extends ChangeNotifier {
       : 'ST-${uid!.substring(0, min(uid!.length, 12)).toUpperCase()}';
   FirebaseFirestore get db =>
       _db ?? (throw StateError('إعداد Firebase لم يكتمل بعد'));
-  bool get signedIn => profile != null && uid != null;
+  bool get signedIn =>
+      profile != null && uid != null && (owner || deviceVerified);
 
   Future<void> initialize() async {
     const apiKey = String.fromEnvironment('FIREBASE_API_KEY');
@@ -106,6 +113,14 @@ class SibStore extends ChangeNotifier {
         unawaited(refreshProfile());
       });
       await refreshProfile();
+      if (uid != null) {
+        try {
+          await verifyDeviceBinding();
+        } catch (e) {
+          setupError = '$e';
+          await logout();
+        }
+      }
     } catch (e) {
       ready = false;
       setupError = 'تعذر تهيئة Firebase. راجع إعدادات المشروع والاتصال.';
@@ -120,6 +135,7 @@ class SibStore extends ChangeNotifier {
     if (current == null) {
       profile = null;
       owner = false;
+      deviceVerified = false;
       notifyListeners();
       return;
     }
@@ -136,6 +152,7 @@ class SibStore extends ChangeNotifier {
             (snap) {
               if (uid != current) return;
               profile = snap.data();
+              _updateDeviceVerification();
               notifyListeners();
             },
             onError: (Object e) {
@@ -148,6 +165,7 @@ class SibStore extends ChangeNotifier {
           .get(const GetOptions(source: Source.server));
       if (uid == current) {
         profile = doc.data();
+        _updateDeviceVerification();
         notifyListeners();
       }
     } catch (e) {
@@ -167,6 +185,68 @@ class SibStore extends ChangeNotifier {
     if (!owner) throw StateError('هذه الوظيفة لحساب المالك فقط');
   }
 
+  void _updateDeviceVerification() {
+    if (owner) {
+      deviceVerified = true;
+      return;
+    }
+    deviceVerified = _deviceId != null &&
+        profile?['device_id'] == _deviceId;
+  }
+
+  Future<RowData> _deviceIdentity() async {
+    try {
+      final value = await _security.invokeMapMethod<String, dynamic>(
+        'deviceIdentity',
+      );
+      final id = '${value?['id'] ?? ''}';
+      if (!RegExp(r'^[a-f0-9]{64}$').hasMatch(id)) {
+        throw StateError('تعذر التحقق من هوية الجهاز');
+      }
+      return {'id': id, 'label': '${value?['label'] ?? 'Android'}'};
+    } on PlatformException {
+      throw StateError('تسجيل الدخول متاح من تطبيق أندرويد المعتمد فقط');
+    } on MissingPluginException {
+      throw StateError('تسجيل الدخول متاح من تطبيق أندرويد المعتمد فقط');
+    }
+  }
+
+  Future<void> verifyDeviceBinding() async {
+    requireReady();
+    final current = uid;
+    if (current == null) throw StateError('سجّل الدخول أولًا');
+    if (owner) {
+      deviceVerified = true;
+      notifyListeners();
+      return;
+    }
+    final identity = await _deviceIdentity();
+    final id = text(identity, 'id');
+    final userRef = db.doc('users/$current');
+    await db.runTransaction((tx) async {
+      final snap = await tx.get(userRef);
+      final data = snap.data();
+      if (data == null) throw StateError('بيانات الحساب غير مكتملة');
+      final bound = text(data, 'device_id');
+      if (bound.isNotEmpty && bound != id) {
+        throw StateError(
+          'الحساب مرتبط بجهاز آخر. تواصل مع الإدارة لفك ربط الجهاز القديم.',
+        );
+      }
+      if (bound.isEmpty) {
+        tx.update(userRef, {
+          'device_id': id,
+          'device_label': text(identity, 'label', 'Android'),
+          'device_bound_at': FieldValue.serverTimestamp(),
+        });
+      }
+    });
+    if (uid != current) return;
+    _deviceId = id;
+    deviceVerified = true;
+    notifyListeners();
+  }
+
   Future<void> register(
     String name,
     String phone,
@@ -176,6 +256,7 @@ class SibStore extends ChangeNotifier {
   ) async {
     requireReady();
     if (!grades.contains(grade)) throw StateError('اختر الصف الدراسي');
+    final identity = await _deviceIdentity();
     final credential = await _auth!.createUserWithEmailAndPassword(
       email: email.trim().toLowerCase(),
       password: password,
@@ -188,8 +269,13 @@ class SibStore extends ChangeNotifier {
         'grade': grade,
         'email': email.trim().toLowerCase(),
         'blocked': false,
+        'device_id': identity['id'],
+        'device_label': identity['label'],
+        'device_bound_at': FieldValue.serverTimestamp(),
         'created_at': FieldValue.serverTimestamp(),
       });
+      _deviceId = text(identity, 'id');
+      deviceVerified = true;
       await refreshProfile();
     } catch (e) {
       await _auth!.signOut();
@@ -199,17 +285,27 @@ class SibStore extends ChangeNotifier {
 
   Future<void> login(String email, String password) async {
     requireReady();
-    await _auth!.signInWithEmailAndPassword(
-      email: email.trim().toLowerCase(),
-      password: password,
-    );
-    await refreshProfile();
+    try {
+      await _auth!.signInWithEmailAndPassword(
+        email: email.trim().toLowerCase(),
+        password: password,
+      );
+      await refreshProfile();
+      await verifyDeviceBinding();
+    } catch (_) {
+      await _auth?.signOut();
+      profile = null;
+      owner = false;
+      deviceVerified = false;
+      rethrow;
+    }
   }
 
   Future<void> logout() async {
     await _auth?.signOut();
     profile = null;
     owner = false;
+    deviceVerified = false;
     notifyListeners();
   }
 
@@ -434,6 +530,16 @@ class SibStore extends ChangeNotifier {
     requireOwner();
     await db.doc('users/$student').update({'blocked': value});
     await audit(value ? 'block' : 'unblock', student);
+  }
+
+  Future<void> resetDevice(String student) async {
+    requireOwner();
+    await db.doc('users/$student').update({
+      'device_id': null,
+      'device_label': null,
+      'device_bound_at': null,
+    });
+    await audit('device_reset', student);
   }
 
   Future<void> renew(

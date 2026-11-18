@@ -34,7 +34,7 @@ service cloud.firestore {
     match /users/{uid} {
       allow get: if own(uid) || owner();
       allow list: if owner();
-      allow create: if own(uid) && request.resource.data.keys().hasOnly(['name','phone','grade','email','blocked','created_at'])
+      allow create: if own(uid) && request.resource.data.keys().hasOnly(['name','phone','grade','email','blocked','device_id','device_label','device_bound_at','created_at'])
         && request.resource.data.name is string && request.resource.data.name.size() >= 3 && request.resource.data.name.size() <= 100
         && request.resource.data.phone is string && request.resource.data.phone.matches('^[+]?[0-9]{8,15}$')
         && request.resource.data.email == request.auth.token.email
@@ -42,8 +42,18 @@ service cloud.firestore {
         && (exists(/databases/$(database)/documents/settings/catalog)
           ? request.resource.data.grade in get(/databases/$(database)/documents/settings/catalog).data.grades
           : request.resource.data.grade in ['الأول الثانوي','الثاني الثانوي','الثالث الثانوي'])
-        && request.resource.data.blocked == false && request.resource.data.created_at == request.time;
+        && request.resource.data.blocked == false
+        && request.resource.data.device_id is string && request.resource.data.device_id.matches('^[a-f0-9]{64}$')
+        && request.resource.data.device_label is string && request.resource.data.device_label.size() >= 1 && request.resource.data.device_label.size() <= 100
+        && request.resource.data.device_bound_at == request.time
+        && request.resource.data.created_at == request.time;
       allow update: if owner() && request.resource.data.email == resource.data.email && request.resource.data.created_at == resource.data.created_at;
+      allow update: if own(uid) && active()
+        && resource.data.get('device_id', null) == null
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['device_id','device_label','device_bound_at'])
+        && request.resource.data.device_id is string && request.resource.data.device_id.matches('^[a-f0-9]{64}$')
+        && request.resource.data.device_label is string && request.resource.data.device_label.size() >= 1 && request.resource.data.device_label.size() <= 100
+        && request.resource.data.device_bound_at == request.time;
       allow delete: if false;
       match /subscriptions/{cid} {
         allow get: if own(uid) || owner();

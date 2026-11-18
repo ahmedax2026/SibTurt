@@ -9,10 +9,13 @@ import android.media.AudioManager
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.os.Bundle
+import android.os.Build
+import android.provider.Settings
 import android.view.WindowManager
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
+import java.security.MessageDigest
 
 class MainActivity : FlutterActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -22,8 +25,25 @@ class MainActivity : FlutterActivity() {
     override fun configureFlutterEngine(engine: FlutterEngine) {
         super.configureFlutterEngine(engine)
         MethodChannel(engine.dartExecutor.binaryMessenger, "sibawayh/security").setMethodCallHandler { call, result ->
-            if (call.method != "status") { result.notImplemented(); return@setMethodCallHandler }
             try {
+                if (call.method == "deviceIdentity") {
+                    val androidId = Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID)
+                    if (androidId.isNullOrBlank()) {
+                        result.error("DEVICE_ID", "تعذر التعرف على هذا الجهاز", null)
+                        return@setMethodCallHandler
+                    }
+                    val value = "$androidId:${applicationContext.packageName}"
+                    val id = MessageDigest.getInstance("SHA-256")
+                        .digest(value.toByteArray())
+                        .joinToString("") { "%02x".format(it) }
+                    val label = "${Build.MANUFACTURER} ${Build.MODEL}".trim()
+                    result.success(mapOf("id" to id, "label" to label))
+                    return@setMethodCallHandler
+                }
+                if (call.method != "status") {
+                    result.notImplemented()
+                    return@setMethodCallHandler
+                }
                 val connectivity = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
                 val vpn = connectivity.allNetworks.any { network -> connectivity.getNetworkCapabilities(network)?.hasTransport(NetworkCapabilities.TRANSPORT_VPN) == true }
                 val proxy = connectivity.defaultProxy != null

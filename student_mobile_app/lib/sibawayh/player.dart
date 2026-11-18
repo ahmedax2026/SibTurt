@@ -66,7 +66,9 @@ class _LessonPlayerState extends State<LessonPlayer>
   Future<void> enforce() async {
     if (!mounted) return;
     final s = widget.store;
-    if (s.uid != sessionUid || s.profile?['blocked'] == true) {
+    if (s.uid != sessionUid ||
+        !s.deviceVerified ||
+        s.profile?['blocked'] == true) {
       block('الحساب موقوف أو انتهت جلسة الدخول');
       return;
     }
