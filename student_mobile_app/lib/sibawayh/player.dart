@@ -108,7 +108,7 @@ class _LessonPlayerState extends State<LessonPlayer>
       if (pausedForBackground) return;
       if (reason.isNotEmpty && mounted) setState(() => reason = '');
       if (!loaded && !opening && failure.isEmpty) await open();
-      if (loaded && elapsed.elapsed.inSeconds % 7 == 0 && mounted)
+      if (loaded && elapsed.elapsed.inSeconds % ((s.brand['watermarkInterval'] as num?)?.toInt() ?? 7).clamp(3, 20).toInt() == 0 && mounted)
         setState(
           () => markAlignment = Alignment(
             Random().nextDouble() * 1.2 - .6,
@@ -153,7 +153,17 @@ class _LessonPlayerState extends State<LessonPlayer>
       );
       anchor = seconds(playback['created_at']);
       elapsed.start();
-      mark = '${widget.store.studentCode} • ${playback['id']}';
+      final profile = widget.store.profile ?? {};
+      final phone = text(profile, 'phone');
+      final code = widget.store.studentCode;
+      final mode = text(widget.store.brand, 'watermarkMode', 'code');
+      final identity = switch (mode) {
+        'email' => text(profile, 'email', code),
+        'phone' => phone.isEmpty ? code : phone,
+        'masked' => '$code • …${phone.length > 4 ? phone.substring(phone.length - 4) : phone}',
+        _ => code,
+      };
+      mark = '${identity.isEmpty ? code : identity} • ${playback['id']}';
       if (!widget.store.owner && (expires ?? 0) <= trustedNow())
         throw StateError('انتهى الاشتراك أو لم يُفعّل');
       final resume = await widget.store.db
@@ -445,7 +455,7 @@ class _LessonPlayerState extends State<LessonPlayer>
             IgnorePointer(child: AnimatedAlign(
               duration: const Duration(milliseconds: 500),
               alignment: markAlignment,
-              child: Text(mark, style: const TextStyle(color: Colors.white54, fontSize: 9)),
+              child: Text(mark, textAlign: TextAlign.center, style: TextStyle(color: Colors.white.withOpacity(((widget.store.brand['watermarkOpacity'] as num?)?.toDouble() ?? .55).clamp(.25, .85).toDouble()), fontSize: ((widget.store.brand['watermarkSize'] as num?)?.toDouble() ?? 12).clamp(9, 24).toDouble(), shadows: const [Shadow(color: Colors.black, blurRadius: 3)])),
             )),
             GestureDetector(
               behavior: HitTestBehavior.translucent,
