@@ -27,7 +27,7 @@ class _LessonPlayerState extends State<LessonPlayer>
     with WidgetsBindingObserver {
   static const channel = MethodChannel('sibawayh/security');
   VideoPlayerController? video;
-  embed.VideoController? youtube;
+  VoidCallback? pauseYoutube;
   String? youtubeId;
   double youtubePosition = 0;
   WebViewController? drive;
@@ -121,8 +121,8 @@ class _LessonPlayerState extends State<LessonPlayer>
   void block(String value) {
     if (!mounted) return;
     video?.pause();
-    youtube?.pauseVideo();
-    if (youtubeId != null) { youtube = null; youtubeId = null; loaded = false; }
+    pauseYoutube?.call();
+    if (youtubeId != null) { pauseYoutube = null; youtubeId = null; loaded = false; }
     if (drive != null) {
       drive!.loadRequest(Uri.parse('about:blank'));
       drive = null;
@@ -276,7 +276,7 @@ class _LessonPlayerState extends State<LessonPlayer>
     subscription?.cancel();
     video?.removeListener(onTick);
     video?.dispose();
-    youtube?.pauseVideo();
+    pauseYoutube?.call();
     elapsed.stop();
     SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
     super.dispose();
@@ -327,7 +327,7 @@ class _LessonPlayerState extends State<LessonPlayer>
         aspectRatio: 16 / 9,
         callBackVideoController: (controller) {
           if (!mounted || reason.isNotEmpty) { controller.pauseVideo(); return; }
-          youtube = controller;
+          pauseYoutube = () { controller.pauseVideo(); };
         },
         onVideoTimeUpdate: (position) => youtubePosition = position,
       );
