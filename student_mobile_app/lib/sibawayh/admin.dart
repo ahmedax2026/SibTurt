@@ -674,14 +674,12 @@ class _AdminStudentDetailState extends State<AdminStudentDetail> {
           children: [
             Text(text(c, 'title')),
             const SizedBox(height: 16),
-            if (c['kind'] == 'develop')
-              TextField(
+            TextField(
                 controller: days,
                 keyboardType: TextInputType.number,
                 decoration: const InputDecoration(labelText: 'عدد الأيام'),
               )
-            else
-              const Text('٣٠ يومًا — تُضاف على المدة المتبقية'),
+            const Text('تُضاف المدة على الاشتراك المتبقي'),
           ],
         ),
         actions: [
@@ -712,6 +710,8 @@ class _AdminStudentDetailState extends State<AdminStudentDetail> {
     body: ListView(
       padding: const EdgeInsets.all(20),
       children: [
+        Text('إدارة الاشتراكات والمدة', style: Theme.of(context).textTheme.headlineSmall),
+        const Text('انتقل إلى الاشتراكات أسفل بيانات الطالب لتفعيل الكورس أو تجديده.'),
         Card(
           child: Padding(
             padding: const EdgeInsets.all(20),
@@ -826,12 +826,15 @@ class _AdminStudentDetailState extends State<AdminStudentDetail> {
           ),
         ),
         const SizedBox(height: 18),
-        Text('الاشتراكات', style: Theme.of(context).textTheme.headlineSmall),
         FutureBuilder<List<RowData>>(
           future: rows,
           builder: (context, snap) {
+            if (snap.hasError) return const Text('تعذر تحميل الكورسات. تحقق من صلاحيات الإدارة والاتصال.');
             if (!snap.hasData)
               return const Center(child: CircularProgressIndicator());
+            if (!snap.data!.any((c) => c['kind'] == 'develop' || c['grade'] == user['grade'])) {
+              return const Text('لا توجد كورسات مطابقة لصف الطالب. أضف كورسًا لهذا الصف أو عدّل صف الطالب من بياناته.');
+            }
             return Column(
               children: [
                 for (final c in snap.data!.where(
