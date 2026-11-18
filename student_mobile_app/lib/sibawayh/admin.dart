@@ -663,23 +663,30 @@ class _AdminStudentDetailState extends State<AdminStudentDetail> {
     }
   }
 
-  Future<void> renew(RowData c) async {
+  Future<void> renew(RowData c, {bool replaceDuration = false}) async {
     final days = TextEditingController(text: '30');
     final result = await showDialog<int>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('تفعيل بعد تأكيد الدفع'),
+        title: Text(replaceDuration ? 'تحديد مدة جديدة من اليوم' : 'تفعيل / تجديد الاشتراك'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(text(c, 'title')),
             const SizedBox(height: 16),
+            Wrap(
+              spacing: 6,
+              children: [1, 7, 30, 90, 365].map((n) => ActionChip(
+                label: Text('$n يوم'),
+                onPressed: () => days.text = '$n',
+              )).toList(),
+            ),
             TextField(
                 controller: days,
                 keyboardType: TextInputType.number,
                 decoration: const InputDecoration(labelText: 'عدد الأيام'),
               ),
-            const Text('تُضاف المدة على الاشتراك المتبقي'),
+            Text(replaceDuration ? 'تستبدل المدة الحالية وتبدأ من اليوم' : 'تُضاف المدة على الاشتراك المتبقي'),
           ],
         ),
         actions: [
@@ -701,7 +708,7 @@ class _AdminStudentDetailState extends State<AdminStudentDetail> {
       return;
     }
     final request = widget.store.db.collection('renewals').doc().id;
-    await run(() => widget.store.renew(user['id'], c['id'], result, request));
+    await run(() => widget.store.renew(user['id'], c['id'], result, request, replaceDuration: replaceDuration));
   }
 
   @override
@@ -863,6 +870,8 @@ class _AdminStudentDetailState extends State<AdminStudentDetail> {
                               onPressed: busy ? null : () => renew(c),
                               child: const Text('تفعيل / تجديد'),
                             ),
+                            if (sub.data?.exists == true)
+                              OutlinedButton(onPressed: busy ? null : () => renew(c, replaceDuration: true), child: const Text('تعديل المدة من اليوم')),
                             if (sub.data?.exists == true)
                               TextButton(
                                 onPressed: busy
