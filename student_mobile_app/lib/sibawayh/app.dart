@@ -901,9 +901,7 @@ class _CourseScreenState extends State<CourseScreen> {
                   selected: selected == null,
                   onSelected: (_) => setState(() => selected = null),
                 ),
-                for (final sub in widget.store.subjects.where(
-                  (s) => rows.any((r) => r['subject'] == s),
-                ))
+                for (final sub in rows.map((r) => text(r, 'subject')).where((s) => s.isNotEmpty).toSet())
                   ChoiceChip(
                     label: Text(sub),
                     selected: selected == sub,
@@ -913,7 +911,13 @@ class _CourseScreenState extends State<CourseScreen> {
             ),
             const SizedBox(height: 18),
             if (rows.isEmpty) const Text('لم تُضف محاضرات بعد'),
-            for (final lesson in rows.where(
+            GridView.extent(
+              maxCrossAxisExtent: MediaQuery.sizeOf(context).width >= 700 ? 440 : 700,
+              mainAxisExtent: 108,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              children: [
+                  for (final lesson in rows.where(
               (r) => selected == null || r['subject'] == selected,
             ))
               Card(
@@ -934,6 +938,8 @@ class _CourseScreenState extends State<CourseScreen> {
                   ),
                 ),
               ),
+              ],
+            ),
           ],
         );
       },
